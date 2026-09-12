@@ -30,6 +30,8 @@ export interface SheetDetail {
   totalRowCount: number;
   nullColumns: string[];
   columnStats: Record<string, ColumnStat>;
+  fileType?: 'csv' | 'xlsx' | 'xls';
+  delimiter?: string;
 }
 
 export interface ParsedWorkbookData {
@@ -39,12 +41,46 @@ export interface ParsedWorkbookData {
 }
 
 /**
- * Check if a cell value is strictly empty or null
+ * Check if a cell value is strictly empty or null, including common CSV null representations
  */
-export const isCellEmpty = (val: unknown): boolean => {
+export const isCellEmpty = (val: unknown, treatTextNulls = true): boolean => {
   if (val === null || val === undefined) return true;
-  if (typeof val === 'string' && val.trim() === '') return true;
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (trimmed === '') return true;
+    if (treatTextNulls) {
+      const lower = trimmed.toLowerCase();
+      if (
+        lower === 'null' ||
+        lower === 'none' ||
+        lower === 'na' ||
+        lower === 'n/a' ||
+        lower === 'nan' ||
+        lower === '-' ||
+        lower === '#n/a' ||
+        lower === '#null!'
+      ) {
+        return true;
+      }
+    }
+  }
   return false;
+};
+
+/**
+ * Detect common CSV delimiter from text header line
+ */
+export const detectCsvDelimiter = (textSample: string): string => {
+  const firstLine = textSample.split(/\r?\n/)[0] || '';
+  const commaCount = (firstLine.match(/,/g) || []).length;
+  const semiCount = (firstLine.match(/;/g) || []).length;
+  const tabCount = (firstLine.match(/\t/g) || []).length;
+  const pipeCount = (firstLine.match(/\|/g) || []).length;
+
+  if (semiCount > commaCount && semiCount > tabCount && semiCount > pipeCount) return ';';
+  if (tabCount > commaCount && tabCount > semiCount && tabCount > pipeCount) return '\t';
+  if (pipeCount > commaCount && pipeCount > semiCount && pipeCount > tabCount) return '|';
+  return ',';
 };
 
 /**
@@ -52,7 +88,8 @@ export const isCellEmpty = (val: unknown): boolean => {
  */
 export const analyzeColumns = (
   rows: Record<string, unknown>[],
-  columns: string[]
+  columns: string[],
+  treatTextNulls = true
 ): { columnStats: Record<string, ColumnStat>; nullColumns: string[] } => {
   const columnStats: Record<string, ColumnStat> = {};
   const nullColumns: string[] = [];
@@ -71,7 +108,7 @@ export const analyzeColumns = (
 
     for (let i = 0; i < sampleLimit; i++) {
       const val = rows[i]?.[col];
-      if (!isCellEmpty(val)) {
+      if (!isCellEmpty(val, treatTextNulls)) {
         filledCount++;
         if (samples.length < 5) {
           samples.push(String(val));
@@ -84,16 +121,22 @@ export const analyzeColumns = (
         } else if (val instanceof Date) {
           typeDate++;
         } else {
-          typeString++;
+          // Check if string can be parsed as number in CSV
+          const trimmed = String(val).trim();
+          if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+            typeNumber++;
+          } else {
+            typeString++;
+          }
         }
       }
     }
 
-    // If dataset is larger than sampleLimit, check if any row beyond sampleLimit has data
+    // If dataset is larger than sampleLimit, verify whether any row beyond sampleLimit has data
     if (filledCount === 0 && totalRows > sampleLimit) {
       for (let i = sampleLimit; i < totalRows; i++) {
         const val = rows[i]?.[col];
-        if (!isCellEmpty(val)) {
+        if (!isCellEmpty(val, treatTextNulls)) {
           filledCount++;
           if (samples.length < 5) samples.push(String(val));
           break;
@@ -173,7 +216,6 @@ export const excelService = {
 
     // Detect all column keys
     const columnSet = new Set<string>();
-    // First check header row if available
     const headerMatrix = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1 });
     if (headerMatrix.length > 0 && Array.isArray(headerMatrix[0])) {
       headerMatrix[0].forEach((h) => {
@@ -203,57 +245,131 @@ export const excelService = {
   },
 
   /**
-   * Parse entire workbook including ALL sheets dynamically with null column detection
+   * Parse entire workbook including ALL sheets dynamically with null column detection (Excel or CSV)
    */
   async parseWorkbookAllSheets(file: File): Promise<ParsedWorkbookData> {
-    const data = await file.arrayBuffer();
-    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+    return this.parseMultipleFiles([file]);
+  },
+
+  /**
+   * Parse one or MULTIPLE files (Excel workbooks and/or multiple CSV files).
+   * If multiple CSV files are provided, each CSV file becomes its own dynamic sheet tab!
+   */
+  async parseMultipleFiles(files: File[]): Promise<ParsedWorkbookData> {
+    if (!files || files.length === 0) {
+      throw new Error('No files provided to parse');
+    }
 
     const sheets: Record<string, SheetDetail> = {};
+    const sheetNames: string[] = [];
+    const baseName = files.length === 1 ? files[0].name : `${files.length}_spreadsheets_combined`;
 
-    workbook.SheetNames.forEach((sheetName) => {
-      const worksheet = workbook.Sheets[sheetName];
-      if (!worksheet) return;
+    for (const file of files) {
+      const isCsv = file.name.toLowerCase().endsWith('.csv');
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array', cellDates: true });
 
-      const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
-        defval: '',
-        raw: false,
-      });
+      // If CSV, tab name is file name without .csv extension
+      if (isCsv) {
+        const cleanTabName = file.name.replace(/\.csv$/i, '');
+        // Ensure unique tab name
+        let uniqueName = cleanTabName;
+        let counter = 1;
+        while (sheets[uniqueName]) {
+          uniqueName = `${cleanTabName} (${counter++})`;
+        }
 
-      // Extract column headers accurately
-      const columnSet = new Set<string>();
-      const headerMatrix = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1 });
-      if (headerMatrix.length > 0 && Array.isArray(headerMatrix[0])) {
-        headerMatrix[0].forEach((h, idx) => {
-          const colName = (h !== undefined && h !== null && String(h).trim() !== '')
-            ? String(h).trim()
-            : `Column_${idx + 1}`;
-          columnSet.add(colName);
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rawRows = firstSheet
+          ? XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: '', raw: false })
+          : [];
+
+        const columnSet = new Set<string>();
+        const headerMatrix = firstSheet
+          ? XLSX.utils.sheet_to_json<string[]>(firstSheet, { header: 1 })
+          : [];
+        if (headerMatrix.length > 0 && Array.isArray(headerMatrix[0])) {
+          headerMatrix[0].forEach((h, idx) => {
+            const colName =
+              h !== undefined && h !== null && String(h).trim() !== ''
+                ? String(h).trim()
+                : `Column_${idx + 1}`;
+            columnSet.add(colName);
+          });
+        }
+
+        const scanLimit = Math.min(rawRows.length, 500);
+        for (let i = 0; i < scanLimit; i++) {
+          Object.keys(rawRows[i]).forEach((k) => columnSet.add(k));
+        }
+
+        const columns = Array.from(columnSet);
+        const { columnStats, nullColumns } = analyzeColumns(rawRows, columns, true);
+
+        sheets[uniqueName] = {
+          sheetName: uniqueName,
+          columns,
+          rows: rawRows,
+          totalRowCount: rawRows.length,
+          nullColumns,
+          columnStats,
+          fileType: 'csv',
+        };
+        sheetNames.push(uniqueName);
+      } else {
+        // Excel workbook with 1 or more sheets
+        workbook.SheetNames.forEach((origSheetName) => {
+          const worksheet = workbook.Sheets[origSheetName];
+          if (!worksheet) return;
+
+          let uniqueName = files.length > 1 ? `${file.name.replace(/\.[^/.]+$/, '')} - ${origSheetName}` : origSheetName;
+          let counter = 1;
+          while (sheets[uniqueName]) {
+            uniqueName = `${origSheetName} (${counter++})`;
+          }
+
+          const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
+            defval: '',
+            raw: false,
+          });
+
+          const columnSet = new Set<string>();
+          const headerMatrix = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1 });
+          if (headerMatrix.length > 0 && Array.isArray(headerMatrix[0])) {
+            headerMatrix[0].forEach((h, idx) => {
+              const colName =
+                h !== undefined && h !== null && String(h).trim() !== ''
+                  ? String(h).trim()
+                  : `Column_${idx + 1}`;
+              columnSet.add(colName);
+            });
+          }
+
+          const scanLimit = Math.min(rawRows.length, 500);
+          for (let i = 0; i < scanLimit; i++) {
+            Object.keys(rawRows[i]).forEach((k) => columnSet.add(k));
+          }
+
+          const columns = Array.from(columnSet);
+          const { columnStats, nullColumns } = analyzeColumns(rawRows, columns, true);
+
+          sheets[uniqueName] = {
+            sheetName: uniqueName,
+            columns,
+            rows: rawRows,
+            totalRowCount: rawRows.length,
+            nullColumns,
+            columnStats,
+            fileType: 'xlsx',
+          };
+          sheetNames.push(uniqueName);
         });
       }
-
-      // Check row object keys for any extra properties
-      const scanLimit = Math.min(rawRows.length, 500);
-      for (let i = 0; i < scanLimit; i++) {
-        Object.keys(rawRows[i]).forEach((k) => columnSet.add(k));
-      }
-
-      const columns = Array.from(columnSet);
-      const { columnStats, nullColumns } = analyzeColumns(rawRows, columns);
-
-      sheets[sheetName] = {
-        sheetName,
-        columns,
-        rows: rawRows,
-        totalRowCount: rawRows.length,
-        nullColumns,
-        columnStats,
-      };
-    });
+    }
 
     return {
-      fileName: file.name,
-      sheetNames: workbook.SheetNames,
+      fileName: baseName,
+      sheetNames,
       sheets,
     };
   },
@@ -299,7 +415,6 @@ export const excelService = {
     sheets.forEach(({ sheetName, rows, columns, nullColumns }) => {
       const { cleanedRows } = stripNullColumnsFromRows(rows, columns, nullColumns);
       const worksheet = XLSX.utils.json_to_sheet(cleanedRows);
-      // Valid Excel sheet names max length is 31 chars
       const safeName = sheetName.slice(0, 31);
       XLSX.utils.book_append_sheet(workbook, worksheet, safeName);
     });
@@ -312,26 +427,47 @@ export const excelService = {
   },
 
   /**
-   * Export an array of objects to CSV file
+   * Export an array of objects to CSV file with customizable delimiter (comma, semicolon, tab, pipe)
    */
-  exportToCsv(data: Record<string, unknown>[], fileName = 'extracted_data.csv') {
+  exportToCsv(data: Record<string, unknown>[], fileName = 'extracted_data.csv', delimiter = ',') {
     const worksheet = XLSX.utils.json_to_sheet(data);
-    const csvContent = XLSX.utils.sheet_to_csv(worksheet);
+    const csvContent = XLSX.utils.sheet_to_csv(worksheet, { FS: delimiter });
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     saveAs(blob, fileName.endsWith('.csv') ? fileName : `${fileName}.csv`);
   },
 
   /**
-   * Export CSV with Null Columns Removed
+   * Export CSV with Null Columns Removed and customizable delimiter
    */
   exportCleanedCsv(
     rows: Record<string, unknown>[],
     columns: string[],
     nullColumns: string[],
-    fileName = 'cleaned_data.csv'
+    fileName = 'cleaned_data.csv',
+    delimiter = ','
   ) {
     const { cleanedRows } = stripNullColumnsFromRows(rows, columns, nullColumns);
-    this.exportToCsv(cleanedRows, fileName);
+    this.exportToCsv(cleanedRows, fileName, delimiter);
+  },
+
+  /**
+   * Export all sheets/tabs as individual Cleaned CSV downloads sequentially
+   */
+  exportAllTabsAsCleanedCsv(
+    sheets: { sheetName: string; rows: Record<string, unknown>[]; columns: string[]; nullColumns: string[] }[],
+    baseFileName = 'dataset',
+    delimiter = ','
+  ) {
+    sheets.forEach(({ sheetName, rows, columns, nullColumns }) => {
+      const cleanSheetName = sheetName.replace(/[^\w-]/g, '_');
+      this.exportCleanedCsv(
+        rows,
+        columns,
+        nullColumns,
+        `${baseFileName}_${cleanSheetName}_cleaned.csv`,
+        delimiter
+      );
+    });
   },
 
   /**

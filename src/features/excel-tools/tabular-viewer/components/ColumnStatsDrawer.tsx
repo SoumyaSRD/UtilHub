@@ -24,8 +24,10 @@ interface ColumnStatsDrawerProps {
   nullColumns: string[];
   hiddenColumns: Set<string>;
   hideNullColumns: boolean;
+  treatTextNulls?: boolean;
   onToggleColumnVisibility: (columnName: string) => void;
   onToggleHideNullColumns: (hide: boolean) => void;
+  onToggleTreatTextNulls?: (treat: boolean) => void;
   onShowAllColumns: () => void;
 }
 
@@ -37,8 +39,10 @@ export const ColumnStatsDrawer: React.FC<ColumnStatsDrawerProps> = ({
   nullColumns,
   hiddenColumns,
   hideNullColumns,
+  treatTextNulls = true,
   onToggleColumnVisibility,
   onToggleHideNullColumns,
+  onToggleTreatTextNulls,
   onShowAllColumns,
 }) => {
   const [filterQuery, setFilterQuery] = useState('');
@@ -87,6 +91,9 @@ export const ColumnStatsDrawer: React.FC<ColumnStatsDrawerProps> = ({
           backgroundColor: nullColumns.length > 0 ? 'rgba(239, 68, 68, 0.08)' : 'var(--color-surface-hover)',
           border: '1px solid',
           borderColor: nullColumns.length > 0 ? 'rgba(239, 68, 68, 0.3)' : 'var(--color-border)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1.5,
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -112,6 +119,24 @@ export const ColumnStatsDrawer: React.FC<ColumnStatsDrawerProps> = ({
             label=""
           />
         </Box>
+
+        {onToggleTreatTextNulls && (
+          <Box sx={{ pt: 1, borderTop: '1px solid var(--color-border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: 'var(--color-text-primary)', display: 'block' }}>
+                CSV Null Representations
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'var(--color-text-muted)', display: 'block' }}>
+                Treat "NA", "NULL", "None", and "-" as empty
+              </Typography>
+            </Box>
+            <Switch
+              size="small"
+              checked={treatTextNulls}
+              onChange={(e) => onToggleTreatTextNulls(e.target.checked)}
+            />
+          </Box>
+        )}
       </Box>
 
       {/* Search columns & reset actions */}

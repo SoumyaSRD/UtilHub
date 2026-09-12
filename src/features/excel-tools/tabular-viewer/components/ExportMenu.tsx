@@ -14,6 +14,7 @@ import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import DataObjectIcon from '@mui/icons-material/DataObject';
 import DescriptionIcon from '@mui/icons-material/Description';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import TableChartIcon from '@mui/icons-material/TableChart';
 import { AppButton } from '@shared/components/AppButton/AppButton';
 import type { ExportType } from '../types';
 
@@ -24,6 +25,7 @@ interface ExportMenuProps {
   hasFilter: boolean;
   filteredCount: number;
   totalCount: number;
+  isCsv?: boolean;
 }
 
 export const ExportMenu: React.FC<ExportMenuProps> = ({
@@ -33,6 +35,7 @@ export const ExportMenu: React.FC<ExportMenuProps> = ({
   hasFilter,
   filteredCount,
   totalCount,
+  isCsv = false,
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
@@ -63,7 +66,7 @@ export const ExportMenu: React.FC<ExportMenuProps> = ({
           boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)',
         }}
       >
-        Download Options
+        Download {isCsv ? 'CSV / Excel' : 'Options'}
       </AppButton>
 
       <Menu
@@ -75,7 +78,8 @@ export const ExportMenu: React.FC<ExportMenuProps> = ({
         slotProps={{
           paper: {
             sx: {
-              minWidth: 360,
+              minWidth: 380,
+              maxHeight: 520,
               borderRadius: '10px',
               boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
               border: '1px solid var(--color-border)',
@@ -93,82 +97,109 @@ export const ExportMenu: React.FC<ExportMenuProps> = ({
             </Typography>
           </Box>
           <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', display: 'block', mt: 0.25 }}>
-            Automatically detects & removes {nullColumnsCount} completely empty column(s)
+            Strips all {nullColumnsCount} empty/null column(s) across rows
           </Typography>
         </Box>
 
-        <MenuItem onClick={() => handleSelect('excel-cleaned')} sx={{ py: 1.25, borderRadius: '6px' }}>
+        {/* CSV Cleaned Downloads */}
+        <MenuItem onClick={() => handleSelect('csv-cleaned')} sx={{ py: 1.2, borderRadius: '6px' }}>
+          <ListItemIcon>
+            <DescriptionIcon sx={{ color: '#0284c7' }} fontSize="small" />
+          </ListItemIcon>
+          <ListItemText
+            primary={<Typography sx={{ fontWeight: 600, fontSize: '0.85rem' }}>Download Cleaned CSV (,)</Typography>}
+            secondary={<Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>Standard comma-separated CSV with null columns removed</Typography>}
+          />
+          <Chip label="CSV" size="small" sx={{ bgcolor: 'var(--color-primary-light)', color: 'var(--color-primary)', fontWeight: 700, height: 20 }} />
+        </MenuItem>
+
+        <MenuItem onClick={() => handleSelect('csv-cleaned-semicolon')} sx={{ py: 1, borderRadius: '6px' }}>
+          <ListItemIcon>
+            <DescriptionIcon sx={{ color: '#0369a1' }} fontSize="small" />
+          </ListItemIcon>
+          <ListItemText
+            primary={<Typography sx={{ fontWeight: 600, fontSize: '0.85rem' }}>Download Cleaned CSV (;)</Typography>}
+            secondary={<Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>European standard semicolon-separated CSV</Typography>}
+          />
+        </MenuItem>
+
+        <MenuItem onClick={() => handleSelect('csv-cleaned-tab')} sx={{ py: 1, borderRadius: '6px' }}>
+          <ListItemIcon>
+            <DescriptionIcon sx={{ color: '#075985' }} fontSize="small" />
+          </ListItemIcon>
+          <ListItemText
+            primary={<Typography sx={{ fontWeight: 600, fontSize: '0.85rem' }}>Download Cleaned TSV (\t)</Typography>}
+            secondary={<Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>Tab-delimited spreadsheet format</Typography>}
+          />
+        </MenuItem>
+
+        {totalSheetsCount > 1 && (
+          <MenuItem onClick={() => handleSelect('csv-all-tabs-cleaned')} sx={{ py: 1.2, borderRadius: '6px' }}>
+            <ListItemIcon>
+              <TableChartIcon sx={{ color: '#2563eb' }} fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary={<Typography sx={{ fontWeight: 600, fontSize: '0.85rem' }}>Download All Tabs as Cleaned CSVs</Typography>}
+              secondary={<Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>Exports each of the {totalSheetsCount} tabs as separate cleaned CSVs</Typography>}
+            />
+            <Chip label="All Tabs" size="small" sx={{ bgcolor: 'var(--color-success-bg)', color: 'var(--color-success)', fontWeight: 700, height: 20 }} />
+          </MenuItem>
+        )}
+
+        <Divider sx={{ my: 0.5 }} />
+
+        {/* Excel Cleaned Downloads */}
+        <MenuItem onClick={() => handleSelect('excel-cleaned')} sx={{ py: 1.2, borderRadius: '6px' }}>
           <ListItemIcon>
             <TableViewIcon sx={{ color: '#16a34a' }} fontSize="small" />
           </ListItemIcon>
           <ListItemText
             primary={<Typography sx={{ fontWeight: 600, fontSize: '0.85rem' }}>Download Cleaned Excel (.xlsx)</Typography>}
-            secondary={<Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>Active sheet with {nullColumnsCount} null column(s) stripped</Typography>}
+            secondary={<Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>Active tab converted to Excel with null columns stripped</Typography>}
           />
-          <Chip label="Cleaned" size="small" sx={{ bgcolor: 'var(--color-success-bg)', color: 'var(--color-success)', fontWeight: 700, height: 20 }} />
+          <Chip label="XLSX" size="small" sx={{ bgcolor: 'var(--color-success-bg)', color: 'var(--color-success)', fontWeight: 700, height: 20 }} />
         </MenuItem>
 
         {totalSheetsCount > 1 && (
-          <MenuItem onClick={() => handleSelect('excel-workbook-cleaned')} sx={{ py: 1.25, borderRadius: '6px' }}>
+          <MenuItem onClick={() => handleSelect('excel-workbook-cleaned')} sx={{ py: 1.2, borderRadius: '6px' }}>
             <ListItemIcon>
               <AutoFixHighIcon sx={{ color: '#2563eb' }} fontSize="small" />
             </ListItemIcon>
             <ListItemText
               primary={<Typography sx={{ fontWeight: 600, fontSize: '0.85rem' }}>Download Full Workbook (.xlsx)</Typography>}
-              secondary={<Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>All {totalSheetsCount} sheets with null columns removed in each</Typography>}
+              secondary={<Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>All {totalSheetsCount} tabs combined into multi-sheet Excel</Typography>}
             />
-            <Chip label="Multi-Tab" size="small" sx={{ bgcolor: 'var(--color-primary-light)', color: 'var(--color-primary)', fontWeight: 700, height: 20 }} />
           </MenuItem>
         )}
 
-        <MenuItem onClick={() => handleSelect('csv-cleaned')} sx={{ py: 1.25, borderRadius: '6px' }}>
-          <ListItemIcon>
-            <DescriptionIcon sx={{ color: '#0284c7' }} fontSize="small" />
-          </ListItemIcon>
-          <ListItemText
-            primary={<Typography sx={{ fontWeight: 600, fontSize: '0.85rem' }}>Download Cleaned CSV (.csv)</Typography>}
-            secondary={<Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>Current sheet formatted as CSV without empty columns</Typography>}
-          />
-        </MenuItem>
-
-        <MenuItem onClick={() => handleSelect('json-cleaned')} sx={{ py: 1.25, borderRadius: '6px' }}>
+        <MenuItem onClick={() => handleSelect('json-cleaned')} sx={{ py: 1, borderRadius: '6px' }}>
           <ListItemIcon>
             <DataObjectIcon sx={{ color: '#9333ea' }} fontSize="small" />
           </ListItemIcon>
           <ListItemText
             primary={<Typography sx={{ fontWeight: 600, fontSize: '0.85rem' }}>Download Cleaned JSON (.json)</Typography>}
-            secondary={<Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>JSON array of records omitting all null properties</Typography>}
+            secondary={<Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>JSON array of objects omitting all null properties</Typography>}
           />
         </MenuItem>
 
         {hasFilter && (
-          <MenuItem onClick={() => handleSelect('filtered-cleaned')} sx={{ py: 1.25, borderRadius: '6px' }}>
+          <MenuItem onClick={() => handleSelect('csv-filtered-cleaned')} sx={{ py: 1.2, borderRadius: '6px' }}>
             <ListItemIcon>
               <FilterAltIcon sx={{ color: '#ea580c' }} fontSize="small" />
             </ListItemIcon>
             <ListItemText
-              primary={<Typography sx={{ fontWeight: 600, fontSize: '0.85rem' }}>Download Filtered Rows ({filteredCount.toLocaleString()} / {totalCount.toLocaleString()})</Typography>}
-              secondary={<Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>Exports only matching search results with null columns removed</Typography>}
+              primary={<Typography sx={{ fontWeight: 600, fontSize: '0.85rem' }}>Download Filtered Rows as CSV ({filteredCount.toLocaleString()} / {totalCount.toLocaleString()})</Typography>}
+              secondary={<Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>Exports matching search rows as CSV without empty columns</Typography>}
             />
           </MenuItem>
         )}
 
-        <Divider sx={{ my: 1 }} />
+        <Divider sx={{ my: 0.5 }} />
 
         {/* Section Header: Raw / As-Is */}
         <Typography variant="caption" sx={{ px: 2, py: 0.5, color: 'var(--color-text-muted)', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>
           Original (Raw) Downloads
         </Typography>
-
-        <MenuItem onClick={() => handleSelect('excel-original')} sx={{ py: 1, borderRadius: '6px' }}>
-          <ListItemIcon>
-            <TableViewIcon sx={{ color: 'var(--color-text-secondary)' }} fontSize="small" />
-          </ListItemIcon>
-          <ListItemText
-            primary={<Typography sx={{ fontSize: '0.8125rem' }}>Download Original Excel (.xlsx)</Typography>}
-            secondary={<Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>Exact sheet data with all original columns preserved</Typography>}
-          />
-        </MenuItem>
 
         <MenuItem onClick={() => handleSelect('csv-original')} sx={{ py: 1, borderRadius: '6px' }}>
           <ListItemIcon>
@@ -177,6 +208,16 @@ export const ExportMenu: React.FC<ExportMenuProps> = ({
           <ListItemText
             primary={<Typography sx={{ fontSize: '0.8125rem' }}>Download Original CSV (.csv)</Typography>}
             secondary={<Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>All original columns as CSV</Typography>}
+          />
+        </MenuItem>
+
+        <MenuItem onClick={() => handleSelect('excel-original')} sx={{ py: 1, borderRadius: '6px' }}>
+          <ListItemIcon>
+            <TableViewIcon sx={{ color: 'var(--color-text-secondary)' }} fontSize="small" />
+          </ListItemIcon>
+          <ListItemText
+            primary={<Typography sx={{ fontSize: '0.8125rem' }}>Download Original Excel (.xlsx)</Typography>}
+            secondary={<Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>Exact sheet data with all original columns</Typography>}
           />
         </MenuItem>
       </Menu>

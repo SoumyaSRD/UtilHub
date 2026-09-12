@@ -2,6 +2,7 @@ import type { SheetDetail } from '@shared/services/file/excelService';
 
 export interface TabularViewerState {
   file: File | null;
+  files: File[];
   fileName: string;
   sheetNames: string[];
   activeSheetName: string;
@@ -11,6 +12,7 @@ export interface TabularViewerState {
   sortColumn: string | null;
   sortDirection: 'asc' | 'desc' | null;
   hideNullColumns: boolean;
+  treatTextNulls: boolean;
   hiddenColumns: Set<string>;
   selectedRowIndex: number | null;
   isStatsOpen: boolean;
@@ -24,6 +26,10 @@ export type ExportType =
   | 'excel-workbook-cleaned'
   | 'excel-original'
   | 'csv-cleaned'
+  | 'csv-cleaned-semicolon'
+  | 'csv-cleaned-tab'
+  | 'csv-all-tabs-cleaned'
+  | 'csv-filtered-cleaned'
   | 'csv-original'
   | 'json-cleaned'
   | 'filtered-cleaned';

@@ -16,6 +16,7 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import SpeedIcon from '@mui/icons-material/Speed';
 import LayersIcon from '@mui/icons-material/Layers';
 import TableRowsIcon from '@mui/icons-material/TableRows';
+import DescriptionIcon from '@mui/icons-material/Description';
 import { AppPageHeader } from '@shared/components/AppPageHeader/AppPageHeader';
 import { AppCard } from '@shared/components/AppCard/AppCard';
 import { AppButton } from '@shared/components/AppButton/AppButton';
@@ -30,6 +31,7 @@ import { RowDetailModal } from '../components/RowDetailModal';
 
 export const TabularViewerPage: React.FC = () => {
   const {
+    files,
     file,
     fileName,
     sheetNames,
@@ -51,6 +53,8 @@ export const TabularViewerPage: React.FC = () => {
     visibleColumns,
     hideNullColumns,
     setHideNullColumns,
+    treatTextNulls,
+    setTreatTextNulls,
     hiddenColumns,
     toggleColumnVisibility,
     showAllColumns,
@@ -74,8 +78,10 @@ export const TabularViewerPage: React.FC = () => {
 
     // Actions
     handleFileSelect,
+    handleFilesSelect,
     handleSheetChange,
     loadLargeDemoDataset,
+    loadLargeCsvDemo,
     exportData,
     resetAll,
   } = useTabularViewer();
@@ -83,25 +89,34 @@ export const TabularViewerPage: React.FC = () => {
   const totalRowCount = currentSheet?.totalRowCount ?? 0;
   const filteredRowCount = processedRows.length;
   const hasFilter = searchQuery.trim().length > 0;
+  const isCsv = currentSheet?.fileType === 'csv';
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
       {/* Page Header */}
       <AppPageHeader
         toolId="excel.tabular-viewer"
-        title="Excel Tabular Viewer & Multi-Sheet Studio"
-        description="High-performance dynamic spreadsheet viewer with 100,000+ record virtual scrolling, dynamic sheet tabs, intelligent null-column remover, and multi-format exports."
+        title="Excel & CSV Tabular Viewer & Multi-Sheet Studio"
+        description="High-performance dynamic spreadsheet viewer with 100,000+ record virtual scrolling, dynamic sheet/CSV tabs, intelligent null-column remover, and multi-format exports for Excel and CSV."
         iconName="TableChart"
-        badge={{ text: '100k+ Ready', variant: 'new' }}
+        badge={{ text: 'Excel & CSV (100k+)', variant: 'new' }}
         actions={
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             <AppButton
               variant="outlined"
+              startIcon={<DescriptionIcon />}
+              onClick={() => loadLargeCsvDemo(100000)}
+              tooltip="Generate and load a high-performance 125,000-row multi-tab CSV dataset with empty columns"
+            >
+              Load 100k CSV Demo
+            </AppButton>
+            <AppButton
+              variant="outlined"
               startIcon={<DatasetIcon />}
               onClick={() => loadLargeDemoDataset(100000)}
-              tooltip="Generate and load a high-performance 100,000-row multi-sheet workbook with empty columns"
+              tooltip="Generate and load a high-performance 130,000-row multi-sheet Excel workbook"
             >
-              Load 100k Multi-Tab Demo
+              Load 100k Excel Demo
             </AppButton>
             {currentSheet && (
               <AppButton variant="text" startIcon={<RestartAltIcon />} onClick={resetAll} color="inherit">
@@ -115,16 +130,19 @@ export const TabularViewerPage: React.FC = () => {
       {/* Upload Box (Collapsed into a slim bar if file is loaded) */}
       {!currentSheet ? (
         <AppCard
-          title="Upload Spreadsheet"
-          subtitle="Upload any Excel (.xlsx, .xls) or CSV (.csv) workbook. Multi-sheet workbooks and 100,000+ records supported."
+          title="Upload Spreadsheets or CSV Files"
+          subtitle="Upload single or multiple CSV files (.csv), or Excel workbooks (.xlsx, .xls). Each CSV file or Excel sheet becomes an interactive tab with 100,000+ record virtual scrolling."
         >
           <AppFileUpload
             selectedFile={file}
+            selectedFiles={files}
+            multiple={true}
             onFileSelect={handleFileSelect}
+            onFilesSelect={handleFilesSelect}
             onClear={resetAll}
             isLoading={isProcessing}
             progressPercent={progressPercent}
-            helperText="Supports multi-tab Excel workbooks and large datasets up to 1GB with virtualized 60fps rendering"
+            helperText="Supports single or multiple CSV (.csv) and Excel (.xlsx, .xls) files up to 1GB with 60fps virtualized rendering"
           />
         </AppCard>
       ) : (
@@ -148,21 +166,34 @@ export const TabularViewerPage: React.FC = () => {
                 width: 36,
                 height: 36,
                 borderRadius: '8px',
-                bgcolor: 'var(--color-primary-light)',
-                color: 'var(--color-primary)',
+                bgcolor: isCsv ? '#e0f2fe' : 'var(--color-primary-light)',
+                color: isCsv ? '#0284c7' : 'var(--color-primary)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <LayersIcon />
+              {isCsv ? <DescriptionIcon /> : <LayersIcon />}
             </Box>
             <Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'var(--color-text-primary)' }}>
-                {fileName}
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                  {fileName}
+                </Typography>
+                <Chip
+                  label={isCsv ? 'CSV Dataset' : 'Excel Workbook'}
+                  size="small"
+                  sx={{
+                    height: 18,
+                    fontSize: '0.625rem',
+                    fontWeight: 700,
+                    bgcolor: isCsv ? '#e0f2fe' : 'var(--color-primary-light)',
+                    color: isCsv ? '#0284c7' : 'var(--color-primary)',
+                  }}
+                />
+              </Box>
               <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
-                {sheetNames.length} Sheet{sheetNames.length > 1 ? 's' : ''} • {totalRowCount.toLocaleString()} Rows in current tab
+                {sheetNames.length} Tab{sheetNames.length > 1 ? 's' : ''} • {totalRowCount.toLocaleString()} Rows in current tab
               </Typography>
             </Box>
           </Box>
@@ -174,7 +205,7 @@ export const TabularViewerPage: React.FC = () => {
               startIcon={<RestartAltIcon />}
               onClick={resetAll}
             >
-              Upload Different File
+              Upload Different Files
             </AppButton>
           </Box>
         </Box>
@@ -192,7 +223,7 @@ export const TabularViewerPage: React.FC = () => {
                 </Box>
                 <Box>
                   <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>
-                    Active Sheet Rows
+                    Active Tab Rows
                   </Typography>
                   <Typography variant="h6" sx={{ fontWeight: 700, color: 'var(--color-text-primary)' }}>
                     {totalRowCount.toLocaleString()}
@@ -269,7 +300,7 @@ export const TabularViewerPage: React.FC = () => {
               severity="warning"
               icon={<AutoFixHighIcon />}
               action={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
                   <FormControlLabel
                     control={
                       <Switch
@@ -288,10 +319,10 @@ export const TabularViewerPage: React.FC = () => {
                   <AppButton
                     size="small"
                     variant="contained"
-                    onClick={() => exportData('excel-cleaned')}
+                    onClick={() => exportData('csv-cleaned')}
                     sx={{ fontWeight: 600 }}
                   >
-                    Download Cleaned Sheet
+                    Download Cleaned CSV
                   </AppButton>
                 </Box>
               }
@@ -306,7 +337,7 @@ export const TabularViewerPage: React.FC = () => {
                 Null Column Remover Detected {nullColumns.length} Empty Column{nullColumns.length > 1 ? 's' : ''}
               </Typography>
               <Typography variant="caption" sx={{ color: 'inherit', display: 'block', mt: 0.25 }}>
-                Columns <strong>{nullColumns.join(', ')}</strong> contain 100% empty or null values across all {totalRowCount.toLocaleString()} rows. You can hide them in the grid or download a cleaned version with these columns automatically removed.
+                Columns <strong>{nullColumns.join(', ')}</strong> contain 100% empty or null values (matches empty cells and CSV nulls like "NA", "NULL", "-"). You can hide them in the grid or download cleaned CSV / Excel files with these columns stripped.
               </Typography>
             </Alert>
           )}
@@ -390,11 +421,12 @@ export const TabularViewerPage: React.FC = () => {
                 hasFilter={hasFilter}
                 filteredCount={filteredRowCount}
                 totalCount={totalRowCount}
+                isCsv={isCsv}
               />
             </Box>
           </Box>
 
-          {/* Dynamic Sheet Tabs according to Excel Workbook */}
+          {/* Dynamic Sheet Tabs according to Excel Workbook or CSV Files */}
           <Box sx={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
             <SheetTabs
               sheetNames={sheetNames}
@@ -431,16 +463,25 @@ export const TabularViewerPage: React.FC = () => {
       {/* Empty State */}
       {!currentSheet && (
         <AppEmptyState
-          title="No Spreadsheet Loaded"
-          description="Upload an Excel workbook (.xlsx, .xls) or CSV file with single or multiple sheets. Easily inspect 100,000+ rows smoothly with our virtual scroll table and intelligent null column remover."
+          title="No Spreadsheet or CSV Loaded"
+          description="Upload an Excel workbook (.xlsx, .xls) or single/multiple CSV files (.csv). Easily view 100,000+ rows smoothly with our virtual scroll table, dynamic multi-file tabs, and intelligent null column remover."
           action={
-            <AppButton
-              variant="contained"
-              onClick={() => loadLargeDemoDataset(100000)}
-              startIcon={<DatasetIcon />}
-            >
-              Test with 100k Multi-Tab Demo Dataset
-            </AppButton>
+            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', justifyContent: 'center' }}>
+              <AppButton
+                variant="contained"
+                onClick={() => loadLargeCsvDemo(100000)}
+                startIcon={<DescriptionIcon />}
+              >
+                Test with 100k Multi-CSV Demo
+              </AppButton>
+              <AppButton
+                variant="outlined"
+                onClick={() => loadLargeDemoDataset(100000)}
+                startIcon={<DatasetIcon />}
+              >
+                Test with 100k Multi-Tab Excel Demo
+              </AppButton>
+            </Box>
           }
         />
       )}
@@ -455,8 +496,10 @@ export const TabularViewerPage: React.FC = () => {
           nullColumns={nullColumns}
           hiddenColumns={hiddenColumns}
           hideNullColumns={hideNullColumns}
+          treatTextNulls={treatTextNulls}
           onToggleColumnVisibility={toggleColumnVisibility}
           onToggleHideNullColumns={setHideNullColumns}
+          onToggleTreatTextNulls={setTreatTextNulls}
           onShowAllColumns={showAllColumns}
         />
       )}

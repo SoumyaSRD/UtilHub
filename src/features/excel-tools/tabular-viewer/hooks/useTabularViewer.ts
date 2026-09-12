@@ -15,6 +15,7 @@ export const useTabularViewer = () => {
   const dispatch = useAppDispatch();
   const { user } = usePermissions();
 
+  const [files, setFiles] = useState<File[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string>('');
   const [sheetNames, setSheetNames] = useState<string[]>([]);
@@ -30,6 +31,7 @@ export const useTabularViewer = () => {
 
   // Column Visibility & Null Column Remover state
   const [hideNullColumns, setHideNullColumns] = useState<boolean>(false);
+  const [treatTextNulls, setTreatTextNulls] = useState<boolean>(true);
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
 
   // UI state
@@ -46,10 +48,13 @@ export const useTabularViewer = () => {
     return sheets[activeSheetName];
   }, [activeSheetName, sheets]);
 
-  // Detected null columns in the current sheet
+  // Detected null columns in the current sheet (recalculated if treatTextNulls changes)
   const nullColumns = useMemo<string[]>(() => {
-    return currentSheet?.nullColumns || [];
-  }, [currentSheet]);
+    if (!currentSheet) return [];
+    // If treatTextNulls is toggled, re-analyze columns
+    const { nullColumns: detected } = analyzeColumns(currentSheet.rows, currentSheet.columns, treatTextNulls);
+    return detected;
+  }, [currentSheet, treatTextNulls]);
 
   // Visible columns for the table
   const visibleColumns = useMemo<string[]>(() => {
@@ -61,16 +66,22 @@ export const useTabularViewer = () => {
     });
   }, [currentSheet, hiddenColumns, hideNullColumns, nullColumns]);
 
-  // File selection and parsing
-  const handleFileSelect = async (uploadedFile: File) => {
+  // Multi-file selection and parsing (supports multiple CSVs or Excel workbooks)
+  const handleFilesSelect = async (uploadedFiles: File[]) => {
+    if (!uploadedFiles || uploadedFiles.length === 0) return;
     try {
-      setFile(uploadedFile);
-      setFileName(uploadedFile.name);
+      setFiles(uploadedFiles);
+      setFile(uploadedFiles[0]);
+      setFileName(
+        uploadedFiles.length === 1
+          ? uploadedFiles[0].name
+          : `${uploadedFiles.length} files (${uploadedFiles.map((f) => f.name).join(', ')})`
+      );
       setIsProcessing(true);
-      setProgressPercent(20);
+      setProgressPercent(25);
 
-      const parsed = await excelService.parseWorkbookAllSheets(uploadedFile);
-      setProgressPercent(80);
+      const parsed = await excelService.parseMultipleFiles(uploadedFiles);
+      setProgressPercent(85);
 
       setSheetNames(parsed.sheetNames);
       setSheets(parsed.sheets);
@@ -85,10 +96,11 @@ export const useTabularViewer = () => {
 
       const initialSheetDetail = parsed.sheets[initialSheet];
       const totalNullCols = initialSheetDetail?.nullColumns.length || 0;
+      const isCsv = uploadedFiles.some((f) => f.name.toLowerCase().endsWith('.csv'));
 
       dispatch(
         showToast({
-          message: `Loaded "${uploadedFile.name}" with ${parsed.sheetNames.length} sheet(s) and ${initialSheetDetail?.totalRowCount.toLocaleString()} rows.${
+          message: `Loaded ${uploadedFiles.length} file(s) into ${parsed.sheetNames.length} tab(s) with ${initialSheetDetail?.totalRowCount.toLocaleString()} rows in active tab.${
             totalNullCols > 0 ? ` (${totalNullCols} empty column(s) detected)` : ''
           }`,
           severity: 'success',
@@ -96,14 +108,14 @@ export const useTabularViewer = () => {
       );
 
       auditService.record('TOOL_EXECUTED', user.name, 'excel.tabular-viewer', {
-        action: 'file_parsed',
-        fileName: uploadedFile.name,
+        action: isCsv ? 'csv_parsed' : 'excel_parsed',
+        filesCount: uploadedFiles.length,
         sheetsCount: parsed.sheetNames.length,
       });
     } catch (err) {
       dispatch(
         showToast({
-          message: `Failed to parse file: ${err instanceof Error ? err.message : 'Unknown error'}`,
+          message: `Failed to parse files: ${err instanceof Error ? err.message : 'Unknown error'}`,
           severity: 'error',
         })
       );
@@ -111,6 +123,10 @@ export const useTabularViewer = () => {
       setIsProcessing(false);
       setProgressPercent(undefined);
     }
+  };
+
+  const handleFileSelect = (singleFile: File) => {
+    handleFilesSelect([singleFile]);
   };
 
   // Switch dynamic sheet tab
@@ -190,6 +206,12 @@ export const useTabularViewer = () => {
           return (valA - valB) * dir;
         }
 
+        const numA = Number(valA);
+        const numB = Number(valB);
+        if (!isNaN(numA) && !isNaN(numB) && String(valA).trim() !== '' && String(valB).trim() !== '') {
+          return (numA - numB) * dir;
+        }
+
         return String(valA).localeCompare(String(valB), undefined, { numeric: true }) * dir;
       });
     }
@@ -197,7 +219,107 @@ export const useTabularViewer = () => {
     return rows;
   }, [currentSheet, searchQuery, sortColumn, sortDirection]);
 
-  // Load High-Volume 100,000+ Records Demo Multi-Tab Dataset
+  // Load High-Volume 100,000+ Records Multi-CSV Demo
+  const loadLargeCsvDemo = (targetRows = 100000) => {
+    setIsProcessing(true);
+    setProgressPercent(25);
+
+    setTimeout(() => {
+      const countries = ['United States', 'Germany', 'Japan', 'United Kingdom', 'Canada', 'Australia', 'India', 'France'];
+      const statuses = ['Active', 'Pending', 'Verified', 'Suspended', 'Trial'];
+      const tiers = ['Enterprise', 'Growth', 'Starter', 'Professional'];
+      const paymentMethods = ['Credit Card', 'Wire Transfer', 'ACH', 'PayPal'];
+
+      const customerRows: Record<string, unknown>[] = new Array(targetRows);
+
+      for (let i = 0; i < targetRows; i++) {
+        customerRows[i] = {
+          CustomerID: `CSV-CUST-${100000 + i}`,
+          Company: `Global Enterprise ${(i % 800) + 1}`,
+          Country: countries[i % countries.length],
+          SubscriptionTier: tiers[i % tiers.length],
+          PaymentMethod: paymentMethods[i % paymentMethods.length],
+          MonthlySpendUSD: Number((1200 + ((i * 47) % 48000)).toFixed(2)),
+          Status: statuses[i % statuses.length],
+          // Intentionally empty CSV columns with various CSV null representations:
+          MiddleInitial: '',
+          FaxNumber: '   ',
+          LegacyTaxExemptId: 'NULL',
+          DeprecatedSecondaryEmail: 'NA',
+          InternalAuditNotes: 'N/A',
+        };
+      }
+
+      // Sheet 2: Transactions CSV (25,000 rows)
+      const txnRowsCount = 25000;
+      const txnRows: Record<string, unknown>[] = new Array(txnRowsCount);
+      for (let i = 0; i < txnRowsCount; i++) {
+        txnRows[i] = {
+          TransactionID: `TXN-${900000 + i}`,
+          CustomerID: `CSV-CUST-${100000 + (i % targetRows)}`,
+          InvoiceNumber: `INV-2026-${1000 + (i % 5000)}`,
+          AmountUSD: Number((150 + ((i * 83) % 12000)).toFixed(2)),
+          Status: i % 12 === 0 ? 'Disputed' : 'Settled',
+          // Intentionally empty CSV columns:
+          DiscountPromoCode: 'None',
+          MerchantMemo: '',
+          ChargebackReason: '-',
+        };
+      }
+
+      const custColumns = Object.keys(customerRows[0]);
+      const custAnalysis = analyzeColumns(customerRows, custColumns, treatTextNulls);
+
+      const txnColumns = Object.keys(txnRows[0]);
+      const txnAnalysis = analyzeColumns(txnRows, txnColumns, treatTextNulls);
+
+      const demoSheets: Record<string, SheetDetail> = {
+        'customers_100k.csv': {
+          sheetName: 'customers_100k.csv',
+          columns: custColumns,
+          rows: customerRows,
+          totalRowCount: customerRows.length,
+          nullColumns: custAnalysis.nullColumns,
+          columnStats: custAnalysis.columnStats,
+          fileType: 'csv',
+        },
+        'transactions_25k.csv': {
+          sheetName: 'transactions_25k.csv',
+          columns: txnColumns,
+          rows: txnRows,
+          totalRowCount: txnRows.length,
+          nullColumns: txnAnalysis.nullColumns,
+          columnStats: txnAnalysis.columnStats,
+          fileType: 'csv',
+        },
+      };
+
+      const demoFile = new File(['demo_csv'], 'customers_and_transactions.csv', { type: 'text/csv' });
+      setFiles([demoFile]);
+      setFile(demoFile);
+      setFileName('customers_and_transactions_100k_demo.csv');
+      setSheetNames(Object.keys(demoSheets));
+      setSheets(demoSheets);
+      setActiveSheetName('customers_100k.csv');
+      setHiddenColumns(new Set());
+      setHideNullColumns(false);
+      setSearchQuery('');
+      setSortColumn(null);
+      setSortDirection(null);
+      setPage(0);
+      setIsProcessing(false);
+      setProgressPercent(undefined);
+
+      dispatch(
+        showToast({
+          message: `Loaded 125,000 rows across 2 CSV tabs with 8 detected empty CSV columns (handled "", "NULL", "NA", "-").`,
+          severity: 'success',
+        })
+      );
+    }, 100);
+  };
+
+  // Load High-Volume 100,000+ Records Excel Multi-Tab Dataset
   const loadLargeDemoDataset = (targetRows = 100000) => {
     setIsProcessing(true);
     setProgressPercent(20);
@@ -225,7 +347,7 @@ export const useTabularViewer = () => {
           AnnualRevenue: Math.floor(10000 + ((i * 137) % 950000)),
           AccountScore: Number((60 + ((i * 7) % 40) + ((i % 10) * 0.1)).toFixed(1)),
           Status: statuses[i % statuses.length],
-          // Intentionally completely null / empty columns for testing Null Column Remover:
+          // Intentionally completely null / empty columns:
           MiddleName: null,
           FaxNumber: '',
           LegacySystemCode: undefined,
@@ -245,37 +367,17 @@ export const useTabularViewer = () => {
           UnitPrice: 49.99 + (i % 50) * 10,
           TotalAmount: Number(((i % 10 + 1) * (49.99 + (i % 50) * 10)).toFixed(2)),
           Status: i % 15 === 0 ? 'Refunded' : i % 5 === 0 ? 'Processing' : 'Completed',
-          // Intentionally empty columns:
           DiscountCode: null,
           InternalReturnMemo: '',
           ApproverSignOff: undefined,
         };
       }
 
-      // Sheet 3: Inventory Summary (5,000 rows)
-      const invRowsCount = 5000;
-      const invRows: Record<string, unknown>[] = new Array(invRowsCount);
-      for (let i = 0; i < invRowsCount; i++) {
-        invRows[i] = {
-          SKU: `SKU-${100 + i}`,
-          ItemName: `Enterprise Component #${i + 1}`,
-          Warehouse: `WH-${(i % 5) + 1}`,
-          StockQuantity: (i * 23) % 2500,
-          ReorderPoint: 50,
-          Status: (i * 23) % 2500 < 50 ? 'Low Stock' : 'In Stock',
-          // Intentionally empty column:
-          RestockOverrideNotes: '',
-        };
-      }
-
       const custColumns = Object.keys(customerRows[0]);
-      const custAnalysis = analyzeColumns(customerRows, custColumns);
+      const custAnalysis = analyzeColumns(customerRows, custColumns, treatTextNulls);
 
       const ordColumns = Object.keys(orderRows[0]);
-      const ordAnalysis = analyzeColumns(orderRows, ordColumns);
-
-      const invColumns = Object.keys(invRows[0]);
-      const invAnalysis = analyzeColumns(invRows, invColumns);
+      const ordAnalysis = analyzeColumns(orderRows, ordColumns, treatTextNulls);
 
       const demoSheets: Record<string, SheetDetail> = {
         'Customers (100k)': {
@@ -285,6 +387,7 @@ export const useTabularViewer = () => {
           totalRowCount: customerRows.length,
           nullColumns: custAnalysis.nullColumns,
           columnStats: custAnalysis.columnStats,
+          fileType: 'xlsx',
         },
         'Orders': {
           sheetName: 'Orders',
@@ -293,19 +396,14 @@ export const useTabularViewer = () => {
           totalRowCount: orderRows.length,
           nullColumns: ordAnalysis.nullColumns,
           columnStats: ordAnalysis.columnStats,
-        },
-        'Inventory': {
-          sheetName: 'Inventory',
-          columns: invColumns,
-          rows: invRows,
-          totalRowCount: invRows.length,
-          nullColumns: invAnalysis.nullColumns,
-          columnStats: invAnalysis.columnStats,
+          fileType: 'xlsx',
         },
       };
 
+      const demoFile = new File(['demo'], 'enterprise_multisheet_100k_demo.xlsx', { type: 'application/vnd.ms-excel' });
+      setFiles([demoFile]);
+      setFile(demoFile);
       setFileName('enterprise_multisheet_100k_demo.xlsx');
-      setFile(new File(['demo'], 'enterprise_multisheet_100k_demo.xlsx', { type: 'application/vnd.ms-excel' }));
       setSheetNames(Object.keys(demoSheets));
       setSheets(demoSheets);
       setActiveSheetName('Customers (100k)');
@@ -320,30 +418,122 @@ export const useTabularViewer = () => {
 
       dispatch(
         showToast({
-          message: `Generated 100,000+ records multi-sheet workbook with 3 tabs and 8 detected empty columns for testing.`,
+          message: `Generated 130,000+ records multi-sheet workbook with 2 tabs and 7 detected empty columns for testing.`,
           severity: 'success',
         })
       );
     }, 100);
   };
 
-  // Multi-Format Export Handler
+  // Multi-Format Export Handler (Excel & CSV)
   const exportData = (type: ExportType) => {
     if (!currentSheet) return;
-    const baseName = (fileName || 'spreadsheet').replace(/\.[^/.]+$/, '');
+    const baseName = (fileName || 'dataset').replace(/\.[^/.]+$/, '');
+    const cleanSheetTitle = currentSheet.sheetName.replace(/\.[^/.]+$/, '');
 
     switch (type) {
+      case 'csv-cleaned': {
+        excelService.exportCleanedCsv(
+          currentSheet.rows,
+          currentSheet.columns,
+          nullColumns,
+          `${baseName}_${cleanSheetTitle}_cleaned.csv`,
+          ','
+        );
+        dispatch(
+          showToast({
+            message: `Exported cleaned CSV without ${nullColumns.length} empty column(s).`,
+            severity: 'success',
+          })
+        );
+        break;
+      }
+
+      case 'csv-cleaned-semicolon': {
+        excelService.exportCleanedCsv(
+          currentSheet.rows,
+          currentSheet.columns,
+          nullColumns,
+          `${baseName}_${cleanSheetTitle}_cleaned_semicolon.csv`,
+          ';'
+        );
+        dispatch(showToast({ message: 'Exported cleaned semicolon-separated CSV (;).', severity: 'success' }));
+        break;
+      }
+
+      case 'csv-cleaned-tab': {
+        excelService.exportCleanedCsv(
+          currentSheet.rows,
+          currentSheet.columns,
+          nullColumns,
+          `${baseName}_${cleanSheetTitle}_cleaned_tab.tsv`,
+          '\t'
+        );
+        dispatch(showToast({ message: 'Exported cleaned TSV (Tab-separated).', severity: 'success' }));
+        break;
+      }
+
+      case 'csv-all-tabs-cleaned': {
+        const sheetsToExport = sheetNames.map((sName) => {
+          const detail = sheets[sName];
+          return {
+            sheetName: detail.sheetName,
+            rows: detail.rows,
+            columns: detail.columns,
+            nullColumns: detail.nullColumns,
+          };
+        });
+        excelService.exportAllTabsAsCleanedCsv(sheetsToExport, baseName, ',');
+        dispatch(
+          showToast({
+            message: `Exported ${sheetsToExport.length} cleaned CSV files (one per tab) without null columns.`,
+            severity: 'success',
+          })
+        );
+        break;
+      }
+
+      case 'csv-filtered-cleaned': {
+        const { cleanedRows } = stripNullColumnsFromRows(
+          processedRows,
+          currentSheet.columns,
+          nullColumns
+        );
+        excelService.exportToCsv(
+          cleanedRows,
+          `${baseName}_${cleanSheetTitle}_filtered_${processedRows.length}.csv`,
+          ','
+        );
+        dispatch(
+          showToast({
+            message: `Exported ${processedRows.length} filtered rows as cleaned CSV.`,
+            severity: 'success',
+          })
+        );
+        break;
+      }
+
+      case 'csv-original': {
+        excelService.exportToCsv(
+          currentSheet.rows,
+          `${baseName}_${cleanSheetTitle}_raw.csv`,
+          ','
+        );
+        dispatch(showToast({ message: 'Exported original CSV as-is.', severity: 'info' }));
+        break;
+      }
+
       case 'excel-cleaned': {
         excelService.exportCleanedExcel(
           currentSheet.rows,
           currentSheet.columns,
-          currentSheet.nullColumns,
-          `${baseName}_${currentSheet.sheetName}_cleaned.xlsx`,
-          currentSheet.sheetName
+          nullColumns,
+          `${baseName}_${cleanSheetTitle}_cleaned.xlsx`,
+          currentSheet.sheetName.slice(0, 31)
         );
         dispatch(
           showToast({
-            message: `Exported cleaned Excel sheet without ${currentSheet.nullColumns.length} null column(s).`,
+            message: `Exported cleaned Excel sheet without ${nullColumns.length} null column(s).`,
             severity: 'success',
           })
         );
@@ -366,7 +556,7 @@ export const useTabularViewer = () => {
         );
         dispatch(
           showToast({
-            message: `Exported full workbook (${sheetsToExport.length} sheets) with all empty columns removed.`,
+            message: `Exported full workbook (${sheetsToExport.length} tabs) with empty columns removed.`,
             severity: 'success',
           })
         );
@@ -376,30 +566,10 @@ export const useTabularViewer = () => {
       case 'excel-original': {
         excelService.exportToExcel(
           currentSheet.rows,
-          `${baseName}_${currentSheet.sheetName}_raw.xlsx`,
-          currentSheet.sheetName
+          `${baseName}_${cleanSheetTitle}_raw.xlsx`,
+          currentSheet.sheetName.slice(0, 31)
         );
         dispatch(showToast({ message: 'Exported original Excel sheet as-is.', severity: 'info' }));
-        break;
-      }
-
-      case 'csv-cleaned': {
-        excelService.exportCleanedCsv(
-          currentSheet.rows,
-          currentSheet.columns,
-          currentSheet.nullColumns,
-          `${baseName}_${currentSheet.sheetName}_cleaned.csv`
-        );
-        dispatch(showToast({ message: 'Exported cleaned CSV.', severity: 'success' }));
-        break;
-      }
-
-      case 'csv-original': {
-        excelService.exportToCsv(
-          currentSheet.rows,
-          `${baseName}_${currentSheet.sheetName}_raw.csv`
-        );
-        dispatch(showToast({ message: 'Exported original CSV.', severity: 'info' }));
         break;
       }
 
@@ -407,8 +577,8 @@ export const useTabularViewer = () => {
         excelService.exportCleanedJson(
           currentSheet.rows,
           currentSheet.columns,
-          currentSheet.nullColumns,
-          `${baseName}_${currentSheet.sheetName}_cleaned.json`
+          nullColumns,
+          `${baseName}_${cleanSheetTitle}_cleaned.json`
         );
         dispatch(showToast({ message: 'Exported cleaned JSON.', severity: 'success' }));
         break;
@@ -418,11 +588,11 @@ export const useTabularViewer = () => {
         const { cleanedRows } = stripNullColumnsFromRows(
           processedRows,
           currentSheet.columns,
-          currentSheet.nullColumns
+          nullColumns
         );
         excelService.exportToExcel(
           cleanedRows,
-          `${baseName}_${currentSheet.sheetName}_filtered_${processedRows.length}.xlsx`,
+          `${baseName}_${cleanSheetTitle}_filtered_${processedRows.length}.xlsx`,
           'Filtered'
         );
         dispatch(
@@ -443,6 +613,7 @@ export const useTabularViewer = () => {
   };
 
   const resetAll = () => {
+    setFiles([]);
     setFile(null);
     setFileName('');
     setSheetNames([]);
@@ -459,6 +630,7 @@ export const useTabularViewer = () => {
   };
 
   return {
+    files,
     file,
     fileName,
     sheetNames,
@@ -480,6 +652,8 @@ export const useTabularViewer = () => {
     visibleColumns,
     hideNullColumns,
     setHideNullColumns,
+    treatTextNulls,
+    setTreatTextNulls,
     hiddenColumns,
     toggleColumnVisibility,
     showAllColumns,
@@ -503,8 +677,10 @@ export const useTabularViewer = () => {
 
     // Actions
     handleFileSelect,
+    handleFilesSelect,
     handleSheetChange,
     loadLargeDemoDataset,
+    loadLargeCsvDemo,
     exportData,
     resetAll,
   };

@@ -11,26 +11,32 @@ import Alert from '@mui/material/Alert';
 
 export interface AppFileUploadProps {
   onFileSelect: (file: File) => void;
+  onFilesSelect?: (files: File[]) => void;
   onClear?: () => void;
   accept?: Accept;
+  multiple?: boolean;
   maxSizeBytes?: number; // default 1GB
   helperText?: string;
   selectedFile?: File | null;
+  selectedFiles?: File[];
   isLoading?: boolean;
   progressPercent?: number;
 }
 
 export const AppFileUpload: React.FC<AppFileUploadProps> = ({
   onFileSelect,
+  onFilesSelect,
   onClear,
   accept = {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
     'application/vnd.ms-excel': ['.xls'],
     'text/csv': ['.csv'],
   },
+  multiple = false,
   maxSizeBytes = 1024 * 1024 * 1024, // 1GB
   helperText = 'Supports Excel (.xlsx, .xls) and CSV (.csv) up to 1GB',
   selectedFile,
+  selectedFiles,
   isLoading = false,
   progressPercent,
 }) => {
@@ -44,25 +50,30 @@ export const AppFileUpload: React.FC<AppFileUploadProps> = ({
         return;
       }
       if (acceptedFiles.length > 0) {
-        const file = acceptedFiles[0];
-        if (file.size > maxSizeBytes) {
-          const limitStr =
-            maxSizeBytes >= 1024 * 1024 * 1024
-              ? `${(maxSizeBytes / (1024 * 1024 * 1024)).toFixed(1)}GB`
-              : `${(maxSizeBytes / (1024 * 1024)).toFixed(0)}MB`;
-          setErrorMessage(`File exceeds maximum size of ${limitStr}.`);
-          return;
+        for (const f of acceptedFiles) {
+          if (f.size > maxSizeBytes) {
+            const limitStr =
+              maxSizeBytes >= 1024 * 1024 * 1024
+                ? `${(maxSizeBytes / (1024 * 1024 * 1024)).toFixed(1)}GB`
+                : `${(maxSizeBytes / (1024 * 1024)).toFixed(0)}MB`;
+            setErrorMessage(`File "${f.name}" exceeds maximum size of ${limitStr}.`);
+            return;
+          }
         }
-        onFileSelect(file);
+        if (multiple && onFilesSelect) {
+          onFilesSelect(acceptedFiles);
+        } else {
+          onFileSelect(acceptedFiles[0]);
+        }
       }
     },
-    [maxSizeBytes, onFileSelect]
+    [maxSizeBytes, multiple, onFileSelect, onFilesSelect]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept,
-    multiple: false,
+    multiple,
     disabled: isLoading,
   });
 
@@ -138,10 +149,14 @@ export const AppFileUpload: React.FC<AppFileUploadProps> = ({
               </Box>
               <Box>
                 <Typography variant="body1" sx={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>
-                  {selectedFile.name}
+                  {selectedFiles && selectedFiles.length > 1
+                    ? `${selectedFiles.length} Spreadsheets / CSVs Loaded`
+                    : selectedFile.name}
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)' }}>
-                  {formatFileSize(selectedFile.size)} • {selectedFile.type || 'Document'}
+                  {selectedFiles && selectedFiles.length > 1
+                    ? selectedFiles.map((f) => f.name).join(', ')
+                    : `${formatFileSize(selectedFile.size)} • ${selectedFile.type || 'Document'}`}
                 </Typography>
               </Box>
             </Box>
