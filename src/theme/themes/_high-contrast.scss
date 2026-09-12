@@ -1,0 +1,50 @@
+[data-theme='high-contrast'] {
+  --color-primary: #0000ee;
+  --color-primary-hover: #0000aa;
+  --color-primary-light: #e0e0ff;
+  --color-primary-contrast: #ffffff;
+
+  --color-secondary: #000000;
+  --color-secondary-hover: #222222;
+  --color-secondary-light: #eeeeee;
+
+  --color-background: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f0f0f0;
+  --color-surface-border: #000000;
+
+  --color-sidebar-bg: #000000;
+  --color-sidebar-text: #ffffff;
+  --color-sidebar-text-bright: #ffff00;
+  --color-sidebar-hover-bg: #222222;
+  --color-sidebar-active-bg: #ffffff;
+  --color-sidebar-active-text: #000000;
+  --color-sidebar-border: #ffffff;
+
+  --color-header-bg: #ffffff;
+  --color-header-border: #000000;
+
+  --color-text-primary: #000000;
+  --color-text-secondary: #111111;
+  --color-text-muted: #333333;
+
+  --color-border: #000000;
+  --color-border-subtle: #444444;
+  --color-divider: #000000;
+
+  --color-success: #007700;
+  --color-success-bg: #d4ffd4;
+  --color-warning: #995500;
+  --color-warning-bg: #fff0d4;
+  --color-error: #cc0000;
+  --color-error-bg: #ffd4d4;
+  --color-info: #0044cc;
+  --color-info-bg: #d4e4ff;
+
+  --color-code-bg: #ffffff;
+  --color-code-text: #000000;
+  --color-code-border: #000000;
+
+  --shadow-card: 0 0 0 2px #000000;
+  --shadow-elevation: 0 0 0 3px #000000;
+}

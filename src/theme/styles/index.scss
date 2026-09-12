@@ -1,0 +1,71 @@
+@use '../tokens/spacing' as *;
+@use '../tokens/borders' as *;
+@use '../tokens/typography' as *;
+@use '../tokens/shadows' as *;
+@use '../tokens/z-index' as *;
+@use './mixins' as *;
+
+@use '../themes/light';
+@use '../themes/dark';
+@use '../themes/enterprise-blue';
+@use '../themes/enterprise-green';
+@use '../themes/high-contrast';
+
+:root {
+  font-family: $font-family-primary;
+  line-height: $line-height-normal;
+  font-weight: $font-weight-regular;
+  font-size: 16px;
+
+  color-scheme: light dark;
+  color: var(--color-text-primary);
+  background-color: var(--color-background);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  // Defaults fallback
+  --header-height: #{$header-height};
+  --sidebar-width-expanded: #{$sidebar-width-expanded};
+  --sidebar-width-collapsed: #{$sidebar-width-collapsed};
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  overflow-x: hidden;
+  @include scrollbar-style;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color 0.15s ease;
+  &:hover {
+    color: var(--color-primary-hover);
+  }
+}
+
+code, pre, kbd {
+  font-family: $font-family-mono;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

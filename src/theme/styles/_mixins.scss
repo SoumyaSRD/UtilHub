@@ -1,0 +1,47 @@
+// SCSS Mixins for Enterprise UI
+@use '../tokens/spacing' as *;
+@use '../tokens/borders' as *;
+@use '../tokens/typography' as *;
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@mixin card-surface {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-surface-border);
+  border-radius: $radius-lg;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+@mixin scrollbar-style {
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-muted);
+  }
+}
