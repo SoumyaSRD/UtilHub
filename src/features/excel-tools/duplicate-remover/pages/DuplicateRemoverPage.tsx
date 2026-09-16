@@ -27,6 +27,8 @@ import { AppEmptyState } from '@shared/components/AppEmptyState/AppEmptyState';
 import { excelService, type ParsedSheetData } from '@shared/services/file/excelService';
 import { useAppDispatch } from '@app/store';
 import { showToast } from '@app/store/slices/uiSlice';
+import { setActiveDataset, type ActiveDataset } from '@app/store/slices/sharedDataSlice';
+import { SharedDatasetBanner } from '@shared/components/SharedDatasetBanner/SharedDatasetBanner';
 import { auditService } from '@shared/telemetry/audit';
 import { usePermissions } from '@registry/hooks/usePermissions';
 
@@ -58,9 +60,50 @@ export const DuplicateRemoverPage: React.FC = () => {
       setParsedData(parsed);
       setKeyColumns(parsed.columns.slice(0, 2));
       setCleanedRows(null);
+
+      // Sync with shared Redux store
+      const isCsv = uploadedFile.name.toLowerCase().endsWith('.csv');
+      dispatch(
+        setActiveDataset({
+          id: `dataset-${Date.now()}`,
+          fileName: uploadedFile.name,
+          fileType: isCsv ? 'csv' : 'xlsx',
+          uploadedAt: new Date().toISOString(),
+          sheetNames: parsed.sheetNames,
+          activeSheet: parsed.activeSheet,
+          sheets: {
+            [parsed.activeSheet]: {
+              sheetName: parsed.activeSheet,
+              columns: parsed.columns,
+              rows: parsed.rows,
+              totalRowCount: parsed.totalRowCount,
+              nullColumns: parsed.nullColumns || [],
+            },
+          },
+          sourceTool: 'Duplicate Remover',
+        })
+      );
     } catch {
       dispatch(showToast({ message: 'Failed to read spreadsheet', severity: 'error' }));
     }
+  };
+
+  const handleUseSharedDataset = (dataset: ActiveDataset) => {
+    const activeSheet = dataset.sheets[dataset.activeSheet] || Object.values(dataset.sheets)[0];
+    if (!activeSheet) return;
+    const parsed: ParsedSheetData = {
+      fileName: dataset.fileName,
+      sheetNames: dataset.sheetNames,
+      activeSheet: activeSheet.sheetName,
+      columns: activeSheet.columns,
+      rows: activeSheet.rows,
+      totalRowCount: activeSheet.totalRowCount,
+      nullColumns: activeSheet.nullColumns,
+    };
+    setParsedData(parsed);
+    setKeyColumns(parsed.columns.slice(0, 2));
+    setCleanedRows(null);
+    setDuplicatesCount(0);
   };
 
   const loadSample = () => {
@@ -134,6 +177,13 @@ export const DuplicateRemoverPage: React.FC = () => {
             Load Demo Data
           </AppButton>
         }
+      />
+
+      {/* Shared Cross-Tool Dataset Prompt Banner */}
+      <SharedDatasetBanner
+        toolId="excel.duplicate-remover"
+        isCurrentDataLoaded={Boolean(parsedData)}
+        onUseDataset={handleUseSharedDataset}
       />
 
       <AppCard title="1. Upload File" subtitle="Upload spreadsheet to analyze duplicate rows">

@@ -36,6 +36,7 @@ import { AppFileUpload } from '@shared/components/AppFileUpload/AppFileUpload';
 import { AppEmptyState } from '@shared/components/AppEmptyState/AppEmptyState';
 import { AppCopyButton } from '@shared/components/AppCopyButton/AppCopyButton';
 import { AppCodeEditor } from '@shared/components/AppCodeEditor/AppCodeEditor';
+import { SharedDatasetBanner } from '@shared/components/SharedDatasetBanner/SharedDatasetBanner';
 import { useColumnExtractor, type CommaFormatType, type CommaQuoteStyle, type CommaWrapBrackets } from '../hooks/useColumnExtractor';
 
 export const ColumnExtractorPage: React.FC = () => {
@@ -75,6 +76,7 @@ export const ColumnExtractorPage: React.FC = () => {
     setSearchColumnQuery,
     handleFileSelect,
     loadSampleData,
+    loadSharedDataset,
     toggleColumn,
     selectAllColumns,
     deselectAllColumns,
@@ -109,6 +111,13 @@ export const ColumnExtractorPage: React.FC = () => {
             Load Sample Dataset
           </AppButton>
         }
+      />
+
+      {/* Shared Cross-Tool Dataset Prompt Banner */}
+      <SharedDatasetBanner
+        toolId="excel.column-extractor"
+        isCurrentDataLoaded={Boolean(parsedData)}
+        onUseDataset={loadSharedDataset}
       />
 
       {/* Step 1: Upload / Input Section */}

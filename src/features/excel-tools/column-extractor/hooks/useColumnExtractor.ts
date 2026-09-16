@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { excelService, type ParsedSheetData } from '@shared/services/file/excelService';
 import { useAppDispatch } from '@app/store';
 import { showToast } from '@app/store/slices/uiSlice';
+import { setActiveDataset, type ActiveDataset } from '@app/store/slices/sharedDataSlice';
 import { auditService } from '@shared/telemetry/audit';
 import { usePermissions } from '@registry/hooks/usePermissions';
 import { saveAs } from 'file-saver';
@@ -72,6 +73,30 @@ export const useColumnExtractor = () => {
       if (parsed.columns.length > 0) {
         setTargetColumn(parsed.columns[0]);
       }
+
+      // Sync with cross-tool Redux shared dataset
+      const isCsv = uploadedFile.name.toLowerCase().endsWith('.csv');
+      dispatch(
+        setActiveDataset({
+          id: `dataset-${Date.now()}`,
+          fileName: uploadedFile.name,
+          fileType: isCsv ? 'csv' : 'xlsx',
+          uploadedAt: new Date().toISOString(),
+          sheetNames: parsed.sheetNames,
+          activeSheet: parsed.activeSheet,
+          sheets: {
+            [parsed.activeSheet]: {
+              sheetName: parsed.activeSheet,
+              columns: parsed.columns,
+              rows: parsed.rows,
+              totalRowCount: parsed.totalRowCount,
+              nullColumns: parsed.nullColumns || [],
+            },
+          },
+          sourceTool: 'Column Extractor',
+        })
+      );
+
       dispatch(
         showToast({
           message: `Loaded "${uploadedFile.name}" with ${parsed.totalRowCount} rows and ${parsed.columns.length} columns.`,
@@ -88,6 +113,28 @@ export const useColumnExtractor = () => {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const loadSharedDataset = (dataset: ActiveDataset) => {
+    const activeSheet = dataset.sheets[dataset.activeSheet] || Object.values(dataset.sheets)[0];
+    if (!activeSheet) return;
+    const parsed: ParsedSheetData = {
+      fileName: dataset.fileName,
+      sheetNames: dataset.sheetNames,
+      activeSheet: activeSheet.sheetName,
+      columns: activeSheet.columns,
+      rows: activeSheet.rows,
+      totalRowCount: activeSheet.totalRowCount,
+      nullColumns: activeSheet.nullColumns,
+    };
+    setParsedData(parsed);
+    setSelectedColumns(parsed.columns.slice(0, 3));
+    if (parsed.columns.length > 0) {
+      setTargetColumn(parsed.columns[0]);
+    }
+    setExtractedRows(null);
+    setCommaResult('');
+    setCommaStats(null);
   };
 
   const loadSampleData = () => {
@@ -321,6 +368,7 @@ export const useColumnExtractor = () => {
     setSearchColumnQuery,
     handleFileSelect,
     loadSampleData,
+    loadSharedDataset,
     toggleColumn,
     selectAllColumns,
     deselectAllColumns,

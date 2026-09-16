@@ -2,6 +2,7 @@ import type React from 'react';
 
 export type ToolCategoryId =
   | 'dashboard'
+  | 'documents'
   | 'excel'
   | 'sql'
   | 'text'

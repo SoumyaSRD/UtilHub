@@ -8,12 +8,19 @@ export const CATEGORIES: Record<ToolCategoryId, CategoryDefinition> = {
     iconName: 'Dashboard',
     order: 1,
   },
+  documents: {
+    id: 'documents',
+    title: 'Document & File Studio',
+    description: 'Dynamic workstation to create, view, edit, delete, and convert Excel, Word, PDF, Markdown, and Text files',
+    iconName: 'FolderSpecial',
+    order: 2,
+  },
   excel: {
     id: 'excel',
     title: 'Excel & CSV Tools',
     description: 'Data cleansing, deduplication, column extraction, and spreadsheet comparison',
     iconName: 'TableChart',
-    order: 2,
+    order: 3,
   },
   sql: {
     id: 'sql',

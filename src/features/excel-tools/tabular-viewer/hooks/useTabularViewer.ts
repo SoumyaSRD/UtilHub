@@ -7,6 +7,7 @@ import {
 } from '@shared/services/file/excelService';
 import { useAppDispatch } from '@app/store';
 import { showToast } from '@app/store/slices/uiSlice';
+import { setActiveDataset, type ActiveDataset } from '@app/store/slices/sharedDataSlice';
 import { auditService } from '@shared/telemetry/audit';
 import { usePermissions } from '@registry/hooks/usePermissions';
 import type { ExportType } from '../types';
@@ -97,6 +98,32 @@ export const useTabularViewer = () => {
       const initialSheetDetail = parsed.sheets[initialSheet];
       const totalNullCols = initialSheetDetail?.nullColumns.length || 0;
       const isCsv = uploadedFiles.some((f) => f.name.toLowerCase().endsWith('.csv'));
+
+      // Populate cross-tool Redux shared dataset
+      dispatch(
+        setActiveDataset({
+          id: `dataset-${Date.now()}`,
+          fileName:
+            uploadedFiles.length === 1
+              ? uploadedFiles[0].name
+              : `${uploadedFiles.length} files (${uploadedFiles.map((f) => f.name).join(', ')})`,
+          fileType: isCsv ? 'csv' : 'xlsx',
+          uploadedAt: new Date().toISOString(),
+          sheetNames: parsed.sheetNames,
+          activeSheet: initialSheet,
+          sheets: Object.entries(parsed.sheets).reduce((acc, [sName, sData]) => {
+            acc[sName] = {
+              sheetName: sName,
+              columns: sData.columns,
+              rows: sData.rows,
+              totalRowCount: sData.totalRowCount,
+              nullColumns: sData.nullColumns,
+            };
+            return acc;
+          }, {} as ActiveDataset['sheets']),
+          sourceTool: 'Tabular Viewer',
+        })
+      );
 
       dispatch(
         showToast({
@@ -629,6 +656,31 @@ export const useTabularViewer = () => {
     setPage(0);
   };
 
+  const loadSharedDataset = (dataset: ActiveDataset) => {
+    setFileName(dataset.fileName);
+    setSheetNames(dataset.sheetNames);
+    const convertedSheets: Record<string, SheetDetail> = {};
+    Object.entries(dataset.sheets).forEach(([sName, sData]) => {
+      const stats = analyzeColumns(sData.rows, sData.columns, treatTextNulls);
+      convertedSheets[sName] = {
+        sheetName: sName,
+        columns: sData.columns,
+        rows: sData.rows,
+        totalRowCount: sData.totalRowCount,
+        nullColumns: sData.nullColumns || stats.nullColumns,
+        columnStats: stats.columnStats,
+        fileType: dataset.fileType === 'csv' ? 'csv' : 'xlsx',
+      };
+    });
+    setSheets(convertedSheets);
+    setActiveSheetName(dataset.activeSheet || dataset.sheetNames[0] || '');
+    setHiddenColumns(new Set());
+    setSearchQuery('');
+    setSortColumn(null);
+    setSortDirection(null);
+    setPage(0);
+  };
+
   return {
     files,
     file,
@@ -681,6 +733,7 @@ export const useTabularViewer = () => {
     handleSheetChange,
     loadLargeDemoDataset,
     loadLargeCsvDemo,
+    loadSharedDataset,
     exportData,
     resetAll,
   };

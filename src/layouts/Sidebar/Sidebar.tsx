@@ -30,6 +30,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed, onNavigate }
   const [filterText, setFilterText] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
     dashboard: true,
+    documents: true,
     excel: true,
     sql: true,
     text: true,

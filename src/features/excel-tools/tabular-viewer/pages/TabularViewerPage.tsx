@@ -22,6 +22,7 @@ import { AppCard } from '@shared/components/AppCard/AppCard';
 import { AppButton } from '@shared/components/AppButton/AppButton';
 import { AppFileUpload } from '@shared/components/AppFileUpload/AppFileUpload';
 import { AppEmptyState } from '@shared/components/AppEmptyState/AppEmptyState';
+import { SharedDatasetBanner } from '@shared/components/SharedDatasetBanner/SharedDatasetBanner';
 import { useTabularViewer } from '../hooks/useTabularViewer';
 import { VirtualScrollTable } from '../components/VirtualScrollTable';
 import { SheetTabs } from '../components/SheetTabs';
@@ -82,6 +83,7 @@ export const TabularViewerPage: React.FC = () => {
     handleSheetChange,
     loadLargeDemoDataset,
     loadLargeCsvDemo,
+    loadSharedDataset,
     exportData,
     resetAll,
   } = useTabularViewer();
@@ -125,6 +127,13 @@ export const TabularViewerPage: React.FC = () => {
             )}
           </Box>
         }
+      />
+
+      {/* Shared Cross-Tool Dataset Prompt Banner */}
+      <SharedDatasetBanner
+        toolId="excel.tabular-viewer"
+        isCurrentDataLoaded={Boolean(currentSheet)}
+        onUseDataset={loadSharedDataset}
       />
 
       {/* Upload Box (Collapsed into a slim bar if file is loaded) */}

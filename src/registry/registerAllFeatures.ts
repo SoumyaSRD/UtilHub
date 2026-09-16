@@ -13,6 +13,9 @@ import { updateGeneratorFeature } from '@features/sql-tools/update';
 import { jsonFormatterFeature } from '@features/text-tools/json-formatter';
 import { regexTesterFeature } from '@features/text-tools/regex';
 import { base64Feature } from '@features/text-tools/base64';
+import { documentStudioFeature } from '@features/document-studio';
+import { universalDiffFeature } from '@features/universal-diff';
+import { codeFormatterFeature } from '@features/code-formatter';
 import { tierMappingFeature } from '@features/pricing-tools/tier-mapping';
 import { catalogueCheckFeature } from '@features/pricing-tools/catalogue-check';
 import { pricingValidatorFeature } from '@features/pricing-tools/validator';
@@ -24,6 +27,8 @@ import { adminFeature } from '@features/admin-tools';
 export const registerAllFeatures = (): void => {
   featureRegistry.registerAll([
     dashboardFeature,
+    // Document & File Studio
+    documentStudioFeature,
     // Excel & CSV Tools
     tabularViewerFeature,
     columnExtractorFeature,
@@ -34,7 +39,9 @@ export const registerAllFeatures = (): void => {
     inClauseFeature,
     insertGeneratorFeature,
     updateGeneratorFeature,
-    // Text Tools
+    // Text & Diff Tools
+    codeFormatterFeature,
+    universalDiffFeature,
     jsonFormatterFeature,
     regexTesterFeature,
     base64Feature,

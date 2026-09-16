@@ -28,6 +28,13 @@ import FlagIcon from '@mui/icons-material/Flag';
 import HistoryIcon from '@mui/icons-material/History';
 import BuildIcon from '@mui/icons-material/Build';
 import HelpIcon from '@mui/icons-material/Help';
+import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
+import AutoStoriesIcon from '@mui/icons-material/AutoStories';
+import DescriptionIcon from '@mui/icons-material/Description';
+import DifferenceIcon from '@mui/icons-material/Difference';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import ArticleIcon from '@mui/icons-material/Article';
 
 interface AppIconProps {
   name: string;
@@ -66,6 +73,13 @@ const iconMap: Record<string, React.ElementType> = {
   History: HistoryIcon,
   Build: BuildIcon,
   Help: HelpIcon,
+  FolderSpecial: FolderSpecialIcon,
+  AutoStories: AutoStoriesIcon,
+  Description: DescriptionIcon,
+  Difference: DifferenceIcon,
+  AutoFixHigh: AutoFixHighIcon,
+  PictureAsPdf: PictureAsPdfIcon,
+  Article: ArticleIcon,
 };
 
 export const AppIcon: React.FC<AppIconProps> = ({ name, className, fontSize = 'small', style }) => {
