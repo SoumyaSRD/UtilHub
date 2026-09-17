@@ -9,6 +9,7 @@ import { saveAs } from 'file-saver';
 
 // Supported quick actions for one-click prompts
 const QUICK_PROMPTS = [
+  { label: '📝 Notes Studio', prompt: 'open notes studio' },
   { label: '📊 Excel to JSON', prompt: 'Convert this dataset to JSON' },
   { label: '🔍 Column Extractor', prompt: 'Extract columns' },
   { label: '🧹 Remove Duplicates', prompt: 'Remove duplicate rows' },
@@ -245,6 +246,10 @@ export const CommandChatbot = () => {
       if (lower.includes('dashboard')) {
         navigate('/dashboard');
         return { text: 'Navigating you to Dashboard...', cardType: 'nav' };
+      }
+      if (lower.includes('note') || lower.includes('onenote') || lower.includes('sticky')) {
+        navigate('/documents/notes');
+        return { text: 'Navigating you to Tree-Structured Notes & OneNote Creator Studio...', cardType: 'nav' };
       }
     }
 

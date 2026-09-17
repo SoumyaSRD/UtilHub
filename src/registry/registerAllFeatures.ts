@@ -14,6 +14,7 @@ import { jsonFormatterFeature } from '@features/text-tools/json-formatter';
 import { regexTesterFeature } from '@features/text-tools/regex';
 import { base64Feature } from '@features/text-tools/base64';
 import { documentStudioFeature } from '@features/document-studio';
+import { notesCreatorFeature } from '@features/notes-creator';
 import { universalDiffFeature } from '@features/universal-diff';
 import { codeFormatterFeature } from '@features/code-formatter';
 import { tierMappingFeature } from '@features/pricing-tools/tier-mapping';
@@ -29,6 +30,7 @@ export const registerAllFeatures = (): void => {
     dashboardFeature,
     // Document & File Studio
     documentStudioFeature,
+    notesCreatorFeature,
     // Excel & CSV Tools
     tabularViewerFeature,
     columnExtractorFeature,

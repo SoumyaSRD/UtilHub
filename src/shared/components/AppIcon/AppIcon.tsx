@@ -35,6 +35,8 @@ import DifferenceIcon from '@mui/icons-material/Difference';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import ArticleIcon from '@mui/icons-material/Article';
+import NoteAltIcon from '@mui/icons-material/NoteAlt';
+import StickyNote2Icon from '@mui/icons-material/StickyNote2';
 
 interface AppIconProps {
   name: string;
@@ -80,6 +82,8 @@ const iconMap: Record<string, React.ElementType> = {
   AutoFixHigh: AutoFixHighIcon,
   PictureAsPdf: PictureAsPdfIcon,
   Article: ArticleIcon,
+  NoteAlt: NoteAltIcon,
+  StickyNote2: StickyNote2Icon,
 };
 
 export const AppIcon: React.FC<AppIconProps> = ({ name, className, fontSize = 'small', style }) => {
