@@ -8,6 +8,7 @@ import { Sidebar } from '../Sidebar/Sidebar';
 import { Breadcrumbs } from '../Breadcrumbs/Breadcrumbs';
 import { CommandPalette } from '../CommandPalette/CommandPalette';
 import { AuditDrawer } from '../AuditDrawer/AuditDrawer';
+import { CommandChatbot } from '../../components/CommandChatbot.jsx';
 import { FeatureErrorBoundary } from '@shared/components/ErrorBoundary/FeatureErrorBoundary';
 import { useAppDispatch, useAppSelector } from '@app/store';
 import { hideToast } from '@app/store/slices/uiSlice';
@@ -55,6 +56,9 @@ export const AppShell: React.FC = () => {
 
       {/* Audit Log Drawer */}
       <AuditDrawer />
+
+      {/* Puter.js AI Meta-Programmed Command Chatbot */}
+      <CommandChatbot />
 
       {/* Toast Notification Center */}
       {activeToast && (

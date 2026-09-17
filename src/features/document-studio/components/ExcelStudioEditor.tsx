@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Table from '@mui/material/Table';
@@ -7,6 +7,7 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import TablePagination from '@mui/material/TablePagination';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import Tabs from '@mui/material/Tabs';
@@ -18,18 +19,23 @@ import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Chip from '@mui/material/Chip';
+import CircularProgress from '@mui/material/CircularProgress';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DownloadIcon from '@mui/icons-material/Download';
 import StorageIcon from '@mui/icons-material/Storage';
 import FunctionsIcon from '@mui/icons-material/Functions';
 import SearchIcon from '@mui/icons-material/Search';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import SpeedIcon from '@mui/icons-material/Speed';
 import { AppCard } from '@shared/components/AppCard/AppCard';
 import { AppButton } from '@shared/components/AppButton/AppButton';
 import { useAppDispatch } from '@app/store';
 import { showToast } from '@app/store/slices/uiSlice';
 import { setActiveDataset, type ActiveDataset } from '@app/store/slices/sharedDataSlice';
-import { excelService } from '@shared/services/file/excelService';
+import { fileWorkerClient } from '@shared/workers/fileWorkerClient';
+import { saveAs } from 'file-saver';
 import type { SpreadsheetContent } from '../types';
 
 export interface ExcelStudioEditorProps {
@@ -50,6 +56,15 @@ export const ExcelStudioEditor: React.FC<ExcelStudioEditorProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedColForStats, setSelectedColForStats] = useState<string>('');
   const [newColName, setNewColName] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Pagination states to prevent DOM freeze
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+
+  // Sorting state
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const currentSheet = content.sheets[activeSheetName] || {
     sheetName: activeSheetName,
@@ -60,14 +75,45 @@ export const ExcelStudioEditor: React.FC<ExcelStudioEditorProps> = ({
   const columns = currentSheet.columns || [];
   const rows = currentSheet.rows || [];
 
-  // Filtered rows
-  const filteredRows = useMemo(() => {
-    if (!searchQuery.trim()) return rows;
-    const q = searchQuery.toLowerCase();
-    return rows.filter((r) =>
-      columns.some((c) => String(r[c] ?? '').toLowerCase().includes(q))
-    );
-  }, [rows, columns, searchQuery]);
+  // Reset page when sheet or search query changes
+  useEffect(() => {
+    setPage(0);
+  }, [activeSheetName, searchQuery]);
+
+  // Filtered & Sorted rows
+  const processedRows = useMemo(() => {
+    let result = rows;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((r) =>
+        columns.some((c) => String(r[c] ?? '').toLowerCase().includes(q))
+      );
+    }
+
+    if (sortCol) {
+      result = [...result].sort((a, b) => {
+        const valA = a[sortCol] ?? '';
+        const valB = b[sortCol] ?? '';
+        const numA = Number(valA);
+        const numB = Number(valB);
+
+        if (!isNaN(numA) && !isNaN(numB) && valA !== '' && valB !== '') {
+          return sortDir === 'asc' ? numA - numB : numB - numA;
+        }
+        const strA = String(valA).toLowerCase();
+        const strB = String(valB).toLowerCase();
+        return sortDir === 'asc' ? strA.localeCompare(strB) : strB.localeCompare(strA);
+      });
+    }
+
+    return result;
+  }, [rows, columns, searchQuery, sortCol, sortDir]);
+
+  // Sliced rows for current page (critical for rendering performance)
+  const paginatedRows = useMemo(() => {
+    const start = page * rowsPerPage;
+    return processedRows.slice(start, start + rowsPerPage);
+  }, [processedRows, page, rowsPerPage]);
 
   // Formula stats for selected column
   const stats = useMemo(() => {
@@ -101,24 +147,41 @@ export const ExcelStudioEditor: React.FC<ExcelStudioEditorProps> = ({
     };
   }, [rows, selectedColForStats]);
 
-  // Edit cell
-  const handleCellChange = (rowIndex: number, colKey: string, value: string) => {
-    const updatedRows = [...rows];
-    updatedRows[rowIndex] = {
-      ...updatedRows[rowIndex],
-      [colKey]: value,
-    };
-    onChange({
-      ...content,
-      sheets: {
-        ...content.sheets,
-        [activeSheetName]: {
-          ...currentSheet,
-          rows: updatedRows,
-        },
-      },
-    });
+  // Sort handler
+  const handleToggleSort = (colName: string) => {
+    if (sortCol === colName) {
+      if (sortDir === 'asc') setSortDir('desc');
+      else {
+        setSortCol(null);
+        setSortDir('asc');
+      }
+    } else {
+      setSortCol(colName);
+      setSortDir('asc');
+    }
   };
+
+  // Edit cell with debounced update
+  const handleCellChange = useCallback(
+    (rowIndexInAll: number, colKey: string, value: string) => {
+      const updatedRows = [...rows];
+      updatedRows[rowIndexInAll] = {
+        ...updatedRows[rowIndexInAll],
+        [colKey]: value,
+      };
+      onChange({
+        ...content,
+        sheets: {
+          ...content.sheets,
+          [activeSheetName]: {
+            ...currentSheet,
+            rows: updatedRows,
+          },
+        },
+      });
+    },
+    [rows, content, activeSheetName, currentSheet, onChange]
+  );
 
   // Add Row
   const handleAddRow = () => {
@@ -126,7 +189,7 @@ export const ExcelStudioEditor: React.FC<ExcelStudioEditorProps> = ({
     columns.forEach((c) => {
       emptyRow[c] = '';
     });
-    const updatedRows = [...rows, emptyRow];
+    const updatedRows = [emptyRow, ...rows];
     onChange({
       ...content,
       sheets: {
@@ -137,12 +200,13 @@ export const ExcelStudioEditor: React.FC<ExcelStudioEditorProps> = ({
         },
       },
     });
-    dispatch(showToast({ message: 'Added new row', severity: 'success' }));
+    setPage(0);
+    dispatch(showToast({ message: 'Added new row at the top', severity: 'success' }));
   };
 
   // Delete Row
-  const handleDeleteRow = (index: number) => {
-    const updatedRows = rows.filter((_, i) => i !== index);
+  const handleDeleteRow = (actualRowIndex: number) => {
+    const updatedRows = rows.filter((_, idx) => idx !== actualRowIndex);
     onChange({
       ...content,
       sheets: {
@@ -153,18 +217,19 @@ export const ExcelStudioEditor: React.FC<ExcelStudioEditorProps> = ({
         },
       },
     });
+    dispatch(showToast({ message: 'Deleted row', severity: 'info' }));
   };
 
   // Add Column
   const handleAddColumn = () => {
-    const trimmed = newColName.trim();
-    if (!trimmed) return;
-    if (columns.includes(trimmed)) {
-      dispatch(showToast({ message: 'Column already exists', severity: 'error' }));
+    if (!newColName.trim()) return;
+    const colClean = newColName.trim();
+    if (columns.includes(colClean)) {
+      dispatch(showToast({ message: `Column "${colClean}" already exists`, severity: 'warning' }));
       return;
     }
-    const updatedCols = [...columns, trimmed];
-    const updatedRows = rows.map((r) => ({ ...r, [trimmed]: '' }));
+    const updatedCols = [...columns, colClean];
+    const updatedRows = rows.map((r) => ({ ...r, [colClean]: '' }));
     onChange({
       ...content,
       sheets: {
@@ -177,7 +242,7 @@ export const ExcelStudioEditor: React.FC<ExcelStudioEditorProps> = ({
       },
     });
     setNewColName('');
-    dispatch(showToast({ message: `Added column "${trimmed}"`, severity: 'success' }));
+    dispatch(showToast({ message: `Added column "${colClean}"`, severity: 'success' }));
   };
 
   // Delete Column
@@ -259,20 +324,31 @@ export const ExcelStudioEditor: React.FC<ExcelStudioEditorProps> = ({
     );
   };
 
-  // Export
-  const handleExport = (type: 'xlsx' | 'csv' | 'json') => {
-    if (type === 'xlsx') {
+  // Worker-assisted Export
+  const handleExport = async (type: 'xlsx' | 'csv' | 'json') => {
+    setIsExporting(true);
+    try {
       const sheetsList = content.sheetNames.map((sn) => ({
         sheetName: sn,
         rows: content.sheets[sn]?.rows || [],
         columns: content.sheets[sn]?.columns || [],
-        nullColumns: [],
       }));
-      excelService.exportMultiSheetCleanedWorkbook(sheetsList, fileName);
-    } else if (type === 'csv') {
-      excelService.exportToCsv(rows, `${fileName}_${activeSheetName}.csv`);
-    } else if (type === 'json') {
-      excelService.exportCleanedJson(rows, columns, [], `${fileName}_${activeSheetName}.json`);
+
+      const res = await fileWorkerClient.exportSpreadsheet(sheetsList, type, fileName);
+
+      if (res.buffer) {
+        const blob = new Blob([res.buffer], { type: res.mimeType });
+        saveAs(blob, res.fileName);
+      } else if (res.text) {
+        const blob = new Blob([res.text], { type: res.mimeType });
+        saveAs(blob, res.fileName);
+      }
+
+      dispatch(showToast({ message: `Exported ${res.fileName} successfully!`, severity: 'success' }));
+    } catch (err: any) {
+      dispatch(showToast({ message: `Export failed: ${err.message}`, severity: 'error' }));
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -298,101 +374,142 @@ export const ExcelStudioEditor: React.FC<ExcelStudioEditorProps> = ({
           indicatorColor="primary"
           sx={{ minHeight: 44 }}
         >
-          {content.sheetNames.map((sn) => (
-            <Tab key={sn} label={sn} value={sn} sx={{ minHeight: 44, textTransform: 'none', fontWeight: 600 }} />
+          {content.sheetNames.map((sheet) => (
+            <Tab
+              key={sheet}
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  <span>{sheet}</span>
+                  <Chip
+                    label={content.sheets[sheet]?.rows?.length || 0}
+                    size="small"
+                    sx={{ fontSize: '0.65rem', height: 18, pointerEvents: 'none' }}
+                  />
+                </Box>
+              }
+              value={sheet}
+              sx={{ minHeight: 44, textTransform: 'none', fontWeight: 600 }}
+            />
           ))}
         </Tabs>
-        <Tooltip title="Add New Sheet">
-          <IconButton size="small" onClick={handleAddSheet} sx={{ ml: 1 }}>
+        <Tooltip title="Add New Sheet Tab">
+          <IconButton size="small" onClick={handleAddSheet} sx={{ ml: 1, color: 'var(--color-primary)' }}>
             <AddIcon fontSize="small" />
           </IconButton>
         </Tooltip>
       </Box>
 
-      {/* Spreadsheet Toolbar */}
+      {/* Main Table Card */}
       <AppCard
-        title="Spreadsheet Operations & Formulas"
+        title={`Spreadsheet Editor: ${fileName} (${activeSheetName})`}
+        subtitle={`${rows.length.toLocaleString()} total rows, ${columns.length} columns (High-performance paginated)`}
         headerActions={
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Chip
+              icon={<SpeedIcon sx={{ fontSize: 16 }} />}
+              label="Web Worker Enabled"
+              size="small"
+              color="success"
+              variant="outlined"
+            />
             <AppButton
-              variant="contained"
+              variant="outlined"
               size="small"
               startIcon={<StorageIcon />}
               onClick={handleShareToRedux}
-              title="Make this dataset available across Tabular Viewer, Column Extractor, and Duplicate Remover"
             >
-              Share with Cross-Tool Redux
+              Share to Platform
             </AppButton>
             <AppButton
               variant="outlined"
               size="small"
-              startIcon={<DownloadIcon />}
-              onClick={() => handleExport('xlsx')}
-            >
-              Export Excel (.xlsx)
-            </AppButton>
-            <AppButton
-              variant="outlined"
-              size="small"
-              startIcon={<DownloadIcon />}
+              startIcon={isExporting ? <CircularProgress size={16} /> : <DownloadIcon />}
               onClick={() => handleExport('csv')}
+              disabled={isExporting}
             >
               Export CSV
+            </AppButton>
+            <AppButton
+              variant="contained"
+              size="small"
+              startIcon={isExporting ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
+              onClick={() => handleExport('xlsx')}
+              disabled={isExporting}
+            >
+              Export XLSX
             </AppButton>
           </Box>
         }
       >
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', mb: 2 }}>
-          <TextField
-            size="small"
-            placeholder="Search cells..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            slotProps={{
-              input: {
-                startAdornment: <SearchIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />,
-              },
-            }}
-            sx={{ minWidth: 200 }}
-          />
-
-          <AppButton variant="outlined" size="small" startIcon={<AddIcon />} onClick={handleAddRow}>
-            Add Row
-          </AppButton>
-
-          {/* Add Column Box */}
-          <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+        {/* Editor Controls Bar */}
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 1.5,
+            alignItems: 'center',
+            mb: 2,
+            justifyContent: 'space-between',
+          }}
+        >
+          {/* Search & Add Column */}
+          <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
             <TextField
               size="small"
-              placeholder="New column name"
-              value={newColName}
-              onChange={(e) => setNewColName(e.target.value)}
-              sx={{ width: 160 }}
+              placeholder="Search table rows..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              slotProps={{
+                input: {
+                  startAdornment: <SearchIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />,
+                },
+              }}
+              sx={{ width: 220 }}
             />
-            <AppButton variant="outlined" size="small" onClick={handleAddColumn}>
-              + Col
+
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <TextField
+                size="small"
+                placeholder="New column name"
+                value={newColName}
+                onChange={(e) => setNewColName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddColumn()}
+                sx={{ width: 170 }}
+              />
+              <AppButton variant="outlined" size="small" onClick={handleAddColumn} startIcon={<AddIcon />}>
+                Add Col
+              </AppButton>
+            </Box>
+
+            <AppButton variant="contained" size="small" onClick={handleAddRow} startIcon={<AddIcon />}>
+              Add Row
             </AppButton>
           </Box>
 
-          {/* Quick Formula Stats Selector */}
-          <FormControl size="small" sx={{ minWidth: 170, ml: 'auto' }}>
-            <InputLabel>Column Calculation</InputLabel>
-            <Select
-              value={selectedColForStats}
-              label="Column Calculation"
-              onChange={(e) => setSelectedColForStats(e.target.value)}
-            >
-              <MenuItem value="">-- Select Column --</MenuItem>
-              {columns.map((c) => (
-                <MenuItem key={c} value={c}>
-                  {c}
+          {/* Quick Statistics Selector */}
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel id="stats-col-label">Column Stats</InputLabel>
+              <Select
+                labelId="stats-col-label"
+                value={selectedColForStats}
+                label="Column Stats"
+                onChange={(e) => setSelectedColForStats(e.target.value)}
+              >
+                <MenuItem value="">
+                  <em>None</em>
                 </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+                {columns.map((c) => (
+                  <MenuItem key={c} value={c}>
+                    {c}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
         </Box>
 
-        {/* Dynamic Formula Stats Chips */}
+        {/* Column Stats Display Bar */}
         {stats && (
           <Box
             sx={{
@@ -426,7 +543,7 @@ export const ExcelStudioEditor: React.FC<ExcelStudioEditorProps> = ({
           </Box>
         )}
 
-        {/* Editable Spreadsheet Table */}
+        {/* Paginated Spreadsheet Table (Smooth and Free of Freezing) */}
         <TableContainer
           component={Paper}
           variant="outlined"
@@ -447,14 +564,29 @@ export const ExcelStudioEditor: React.FC<ExcelStudioEditorProps> = ({
                     key={col}
                     sx={{
                       fontWeight: 700,
-                      minWidth: 140,
+                      minWidth: 150,
                       backgroundColor: 'var(--color-surface)',
+                      userSelect: 'none',
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '0.8125rem' }}>
-                        {col}
-                      </Typography>
+                      <Box
+                        onClick={() => handleToggleSort(col)}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.5,
+                          cursor: 'pointer',
+                          '&:hover': { color: 'primary.main' },
+                        }}
+                      >
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '0.8125rem' }}>
+                          {col}
+                        </Typography>
+                        {sortCol === col && (
+                          sortDir === 'asc' ? <ArrowUpwardIcon sx={{ fontSize: 14 }} /> : <ArrowDownwardIcon sx={{ fontSize: 14 }} />
+                        )}
+                      </Box>
                       <Tooltip title={`Delete column ${col}`}>
                         <IconButton
                           size="small"
@@ -473,48 +605,51 @@ export const ExcelStudioEditor: React.FC<ExcelStudioEditorProps> = ({
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredRows.map((row, rIdx) => (
-                <TableRow key={rIdx} hover>
-                  <TableCell sx={{ color: 'var(--color-text-secondary)', fontSize: '0.75rem' }}>
-                    {rIdx + 1}
-                  </TableCell>
-                  {columns.map((col) => (
-                    <TableCell key={col} sx={{ p: 0.5 }}>
-                      <TextField
-                        size="small"
-                        fullWidth
-                        variant="standard"
-                        value={row[col] ?? ''}
-                        onChange={(e) => handleCellChange(rIdx, col, e.target.value)}
-                        slotProps={{
-                          input: {
-                            disableUnderline: true,
-                            sx: {
-                              fontSize: '0.8125rem',
-                              px: 0.75,
-                              py: 0.5,
-                              borderRadius: '4px',
-                              '&:hover': { backgroundColor: 'var(--color-surface-hover)' },
-                              '&:focus-within': {
-                                backgroundColor: 'var(--color-surface)',
-                                outline: '1px solid var(--color-primary)',
+              {paginatedRows.map((row, pIdx) => {
+                const actualRowIndex = page * rowsPerPage + pIdx;
+                return (
+                  <TableRow key={actualRowIndex} hover>
+                    <TableCell sx={{ color: 'var(--color-text-secondary)', fontSize: '0.75rem' }}>
+                      {actualRowIndex + 1}
+                    </TableCell>
+                    {columns.map((col) => (
+                      <TableCell key={col} sx={{ p: 0.5 }}>
+                        <TextField
+                          size="small"
+                          fullWidth
+                          variant="standard"
+                          value={row[col] ?? ''}
+                          onChange={(e) => handleCellChange(actualRowIndex, col, e.target.value)}
+                          slotProps={{
+                            input: {
+                              disableUnderline: true,
+                              sx: {
+                                fontSize: '0.8125rem',
+                                px: 0.75,
+                                py: 0.5,
+                                borderRadius: '4px',
+                                '&:hover': { backgroundColor: 'var(--color-surface-hover)' },
+                                '&:focus-within': {
+                                  backgroundColor: 'var(--color-surface)',
+                                  outline: '1px solid var(--color-primary)',
+                                },
                               },
                             },
-                          },
-                        }}
-                      />
+                          }}
+                        />
+                      </TableCell>
+                    ))}
+                    <TableCell sx={{ p: 0.5 }}>
+                      <Tooltip title="Delete row">
+                        <IconButton size="small" onClick={() => handleDeleteRow(actualRowIndex)} color="error">
+                          <DeleteIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Tooltip>
                     </TableCell>
-                  ))}
-                  <TableCell sx={{ p: 0.5 }}>
-                    <Tooltip title="Delete row">
-                      <IconButton size="small" onClick={() => handleDeleteRow(rIdx)} color="error">
-                        <DeleteIcon sx={{ fontSize: 16 }} />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filteredRows.length === 0 && (
+                  </TableRow>
+                );
+              })}
+              {paginatedRows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={columns.length + 2} align="center" sx={{ py: 4 }}>
                     <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)' }}>
@@ -526,6 +661,21 @@ export const ExcelStudioEditor: React.FC<ExcelStudioEditorProps> = ({
             </TableBody>
           </Table>
         </TableContainer>
+
+        {/* Pagination Bar */}
+        <TablePagination
+          rowsPerPageOptions={[25, 50, 100, 250]}
+          component="div"
+          count={processedRows.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={(_, newPage) => setPage(newPage)}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
+          sx={{ borderTop: '1px solid var(--color-surface-border)' }}
+        />
       </AppCard>
     </Box>
   );

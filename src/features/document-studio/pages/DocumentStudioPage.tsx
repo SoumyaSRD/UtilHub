@@ -7,6 +7,9 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import Chip from '@mui/material/Chip';
+import Backdrop from '@mui/material/Backdrop';
+import CircularProgress from '@mui/material/CircularProgress';
 import AddIcon from '@mui/icons-material/Add';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CloseIcon from '@mui/icons-material/Close';
@@ -20,6 +23,9 @@ import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import ArticleIcon from '@mui/icons-material/Article';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import CodeIcon from '@mui/icons-material/Code';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import SyncIcon from '@mui/icons-material/Sync';
+import SpeedIcon from '@mui/icons-material/Speed';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -30,7 +36,8 @@ import { AppButton } from '@shared/components/AppButton/AppButton';
 import { AppConfirmDialog } from '@shared/components/AppConfirmDialog/AppConfirmDialog';
 import { useAppDispatch } from '@app/store';
 import { showToast } from '@app/store/slices/uiSlice';
-import { excelService } from '@shared/services/file/excelService';
+import { fileWorkerClient } from '@shared/workers/fileWorkerClient';
+import { studioStorage } from '../services/studioStorage';
 import type { StudioFile, StudioFileType, SpreadsheetContent } from '../types';
 import { NewFileModal } from '../components/NewFileModal';
 import { ExcelStudioEditor } from '../components/ExcelStudioEditor';
@@ -94,59 +101,58 @@ const DEFAULT_FILES: StudioFile[] = [
   },
 ];
 
-const STORAGE_KEY = 'helper_studio_files_v1';
-
 export const DocumentStudioPage: React.FC = () => {
   const dispatch = useAppDispatch();
-  const [files, setFiles] = useState<StudioFile[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {
-      // ignore
-    }
-    return DEFAULT_FILES;
-  });
-
-  const [activeFileId, setActiveFileId] = useState<string>(() => {
-    return files[0]?.id || '';
-  });
-
+  const [files, setFiles] = useState<StudioFile[]>(DEFAULT_FILES);
+  const [activeFileId, setActiveFileId] = useState<string>(DEFAULT_FILES[0].id);
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<StudioFile | null>(null);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+  const [storageStatus, setStorageStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+  const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const [processingStatusText, setProcessingStatusText] = useState('Processing in Web Worker...');
 
-  // Sync to localStorage
+  // Initialize from IndexedDB via studioStorage
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
-    } catch {
-      // ignore
-    }
-  }, [files]);
+    let mounted = true;
+    studioStorage.loadFiles(DEFAULT_FILES).then((loaded) => {
+      if (mounted && loaded.length > 0) {
+        setFiles(loaded);
+        setActiveFileId((prev) => (loaded.some((f) => f.id === prev) ? prev : loaded[0].id));
+      }
+    });
+
+    const unsubscribe = studioStorage.subscribeStatus((st) => {
+      if (mounted) setStorageStatus(st);
+    });
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, []);
 
   const activeFile = files.find((f) => f.id === activeFileId) || files[0];
 
   const handleCreateFile = (newFile: StudioFile) => {
-    setFiles((prev) => [...prev, newFile]);
+    const updated = [...files, newFile];
+    setFiles(updated);
     setActiveFileId(newFile.id);
+    studioStorage.saveFilesDebounced(updated, 100);
     dispatch(showToast({ message: `Created "${newFile.name}"`, severity: 'success' }));
   };
 
   const handleUpdateContent = (updatedContent: string | SpreadsheetContent) => {
     if (!activeFile) return;
-    setFiles((prev) =>
-      prev.map((f) =>
-        f.id === activeFile.id
-          ? { ...f, content: updatedContent, updatedAt: new Date().toISOString() }
-          : f
-      )
+    const updated = files.map((f) =>
+      f.id === activeFile.id
+        ? { ...f, content: updatedContent, updatedAt: new Date().toISOString() }
+        : f
     );
+    setFiles(updated);
+    studioStorage.saveFilesDebounced(updated, 500);
   };
 
   const handleConfirmDelete = () => {
@@ -156,6 +162,7 @@ export const DocumentStudioPage: React.FC = () => {
     if (activeFileId === fileToDelete.id) {
       setActiveFileId(remaining[0]?.id || '');
     }
+    studioStorage.saveFilesDebounced(remaining, 100);
     dispatch(showToast({ message: `Deleted "${fileToDelete.name}"`, severity: 'info' }));
     setFileToDelete(null);
   };
@@ -170,36 +177,41 @@ export const DocumentStudioPage: React.FC = () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    setFiles((prev) => [...prev, dup]);
+    const updated = [...files, dup];
+    setFiles(updated);
     setActiveFileId(dup.id);
+    studioStorage.saveFilesDebounced(updated, 100);
     dispatch(showToast({ message: `Duplicated "${activeFile.name}"`, severity: 'success' }));
   };
 
   const handleRename = () => {
     if (!activeFile || !renameValue.trim()) return;
-    setFiles((prev) =>
-      prev.map((f) => (f.id === activeFile.id ? { ...f, name: renameValue.trim() } : f))
-    );
+    const clean = renameValue.trim();
+    const updated = files.map((f) => (f.id === activeFile.id ? { ...f, name: clean } : f));
+    setFiles(updated);
+    studioStorage.saveFilesDebounced(updated, 100);
     setRenameDialogOpen(false);
-    dispatch(showToast({ message: `Renamed file to "${renameValue.trim()}"`, severity: 'success' }));
+    dispatch(showToast({ message: `Renamed file to "${clean}"`, severity: 'success' }));
   };
 
-  // Upload any file
+  // Upload file using Web Worker
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploaded = e.target.files?.[0];
     if (!uploaded) return;
 
     const lowerName = uploaded.name.toLowerCase();
-    let fileType: StudioFileType = 'text';
+    setIsProcessingFile(true);
+    setProcessingStatusText(`Offloading ${uploaded.name} to Web Worker...`);
 
-    if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls') || lowerName.endsWith('.csv')) {
-      fileType = lowerName.endsWith('.csv') ? 'csv' : 'excel';
-      try {
-        const parsed = await excelService.parseFile(uploaded);
+    try {
+      if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls') || lowerName.endsWith('.csv')) {
+        const fileType: StudioFileType = lowerName.endsWith('.csv') ? 'csv' : 'excel';
+        const parsed = await fileWorkerClient.parseExcelFile(uploaded);
+
         const spreadsheetContent: SpreadsheetContent = {
           sheetNames: parsed.sheetNames,
           activeSheet: parsed.activeSheet,
-          sheets: {
+          sheets: parsed.sheets || {
             [parsed.activeSheet]: {
               sheetName: parsed.activeSheet,
               columns: parsed.columns,
@@ -207,6 +219,7 @@ export const DocumentStudioPage: React.FC = () => {
             },
           },
         };
+
         const newFile: StudioFile = {
           id: `file-${Date.now()}`,
           name: uploaded.name,
@@ -216,76 +229,91 @@ export const DocumentStudioPage: React.FC = () => {
           updatedAt: new Date().toISOString(),
           sizeBytes: uploaded.size,
         };
-        setFiles((prev) => [...prev, newFile]);
-        setActiveFileId(newFile.id);
-        dispatch(showToast({ message: `Uploaded and parsed spreadsheet "${uploaded.name}"`, severity: 'success' }));
-      } catch (err) {
-        dispatch(showToast({ message: 'Failed to parse Excel file', severity: 'error' }));
-      }
-    } else if (lowerName.endsWith('.pdf')) {
-      fileType = 'pdf';
-      const fileUrl = URL.createObjectURL(uploaded);
-      const newFile: StudioFile = {
-        id: `file-${Date.now()}`,
-        name: uploaded.name,
-        type: 'pdf',
-        content: '',
-        pdfUrl: fileUrl,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        sizeBytes: uploaded.size,
-      };
-      setFiles((prev) => [...prev, newFile]);
-      setActiveFileId(newFile.id);
-      dispatch(showToast({ message: `Loaded PDF document "${uploaded.name}"`, severity: 'success' }));
-    } else if (lowerName.endsWith('.md')) {
-      fileType = 'markdown';
-      const text = await uploaded.text();
-      const newFile: StudioFile = {
-        id: `file-${Date.now()}`,
-        name: uploaded.name,
-        type: 'markdown',
-        content: text,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        sizeBytes: uploaded.size,
-      };
-      setFiles((prev) => [...prev, newFile]);
-      setActiveFileId(newFile.id);
-      dispatch(showToast({ message: `Loaded Markdown document "${uploaded.name}"`, severity: 'success' }));
-    } else if (lowerName.endsWith('.doc') || lowerName.endsWith('.docx') || lowerName.endsWith('.html')) {
-      fileType = 'word';
-      const text = await uploaded.text();
-      const newFile: StudioFile = {
-        id: `file-${Date.now()}`,
-        name: uploaded.name,
-        type: 'word',
-        content: text,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        sizeBytes: uploaded.size,
-      };
-      setFiles((prev) => [...prev, newFile]);
-      setActiveFileId(newFile.id);
-      dispatch(showToast({ message: `Loaded document "${uploaded.name}"`, severity: 'success' }));
-    } else {
-      fileType = lowerName.endsWith('.json') ? 'code' : 'text';
-      const text = await uploaded.text();
-      const newFile: StudioFile = {
-        id: `file-${Date.now()}`,
-        name: uploaded.name,
-        type: fileType,
-        content: text,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        sizeBytes: uploaded.size,
-      };
-      setFiles((prev) => [...prev, newFile]);
-      setActiveFileId(newFile.id);
-      dispatch(showToast({ message: `Loaded file "${uploaded.name}"`, severity: 'success' }));
-    }
 
-    e.target.value = '';
+        const updated = [...files, newFile];
+        setFiles(updated);
+        setActiveFileId(newFile.id);
+        studioStorage.saveFilesDebounced(updated, 200);
+        dispatch(
+          showToast({
+            message: `Parsed "${uploaded.name}" smoothly via Web Worker!`,
+            severity: 'success',
+          })
+        );
+      } else if (lowerName.endsWith('.pdf')) {
+        const fileUrl = URL.createObjectURL(uploaded);
+        const newFile: StudioFile = {
+          id: `file-${Date.now()}`,
+          name: uploaded.name,
+          type: 'pdf',
+          content: '',
+          pdfUrl: fileUrl,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          sizeBytes: uploaded.size,
+        };
+        const updated = [...files, newFile];
+        setFiles(updated);
+        setActiveFileId(newFile.id);
+        studioStorage.saveFilesDebounced(updated, 200);
+        dispatch(showToast({ message: `Loaded PDF document "${uploaded.name}"`, severity: 'success' }));
+      } else if (lowerName.endsWith('.md')) {
+        const text = await uploaded.text();
+        const newFile: StudioFile = {
+          id: `file-${Date.now()}`,
+          name: uploaded.name,
+          type: 'markdown',
+          content: text,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          sizeBytes: uploaded.size,
+        };
+        const updated = [...files, newFile];
+        setFiles(updated);
+        setActiveFileId(newFile.id);
+        studioStorage.saveFilesDebounced(updated, 200);
+        dispatch(showToast({ message: `Loaded Markdown document "${uploaded.name}"`, severity: 'success' }));
+      } else if (lowerName.endsWith('.doc') || lowerName.endsWith('.docx') || lowerName.endsWith('.html')) {
+        const text = await uploaded.text();
+        const newFile: StudioFile = {
+          id: `file-${Date.now()}`,
+          name: uploaded.name,
+          type: 'word',
+          content: text,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          sizeBytes: uploaded.size,
+        };
+        const updated = [...files, newFile];
+        setFiles(updated);
+        setActiveFileId(newFile.id);
+        studioStorage.saveFilesDebounced(updated, 200);
+        dispatch(showToast({ message: `Loaded document "${uploaded.name}"`, severity: 'success' }));
+      } else {
+        const fileType: StudioFileType = lowerName.endsWith('.json') ? 'code' : 'text';
+        const text = await uploaded.text();
+        const newFile: StudioFile = {
+          id: `file-${Date.now()}`,
+          name: uploaded.name,
+          type: fileType,
+          content: text,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          sizeBytes: uploaded.size,
+        };
+        const updated = [...files, newFile];
+        setFiles(updated);
+        setActiveFileId(newFile.id);
+        studioStorage.saveFilesDebounced(updated, 200);
+        dispatch(showToast({ message: `Loaded file "${uploaded.name}"`, severity: 'success' }));
+      }
+    } catch (err: any) {
+      console.error('File parsing error:', err);
+      dispatch(showToast({ message: `Failed to process file: ${err.message}`, severity: 'error' }));
+    } finally {
+      setIsProcessingFile(false);
+      e.target.value = '';
+    }
   };
 
   const getFileIcon = (type: StudioFileType) => {
@@ -298,38 +326,74 @@ export const DocumentStudioPage: React.FC = () => {
       case 'word':
         return <ArticleIcon sx={{ fontSize: 18, color: '#0284c7' }} />;
       case 'pdf':
-        return <PictureAsPdfIcon sx={{ fontSize: 18, color: '#ef4444' }} />;
+        return <PictureAsPdfIcon sx={{ fontSize: 18, color: '#dc2626' }} />;
       case 'code':
-        return <CodeIcon sx={{ fontSize: 18, color: '#ea580c' }} />;
+        return <CodeIcon sx={{ fontSize: 18, color: '#f59e0b' }} />;
       default:
-        return <DescriptionIcon sx={{ fontSize: 18, color: '#2563eb' }} />;
+        return <DescriptionIcon sx={{ fontSize: 18, color: '#64748b' }} />;
     }
   };
 
+  const getStorageStatusBadge = () => {
+    if (storageStatus === 'saving') {
+      return (
+        <Chip
+          icon={<SyncIcon sx={{ fontSize: 14, animation: 'spin 1.5s linear infinite' }} />}
+          label="Saving..."
+          size="small"
+          variant="outlined"
+          color="warning"
+        />
+      );
+    }
+    if (storageStatus === 'unsaved') {
+      return <Chip label="Unsaved Changes" size="small" variant="outlined" color="default" />;
+    }
+    return (
+      <Chip
+        icon={<CheckCircleIcon sx={{ fontSize: 14 }} />}
+        label="IndexedDB Saved"
+        size="small"
+        variant="outlined"
+        color="success"
+      />
+    );
+  };
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-      {/* Header */}
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {/* Loading Backdrop for Worker operations */}
+      <Backdrop
+        sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 10, display: 'flex', flexDirection: 'column', gap: 2 }}
+        open={isProcessingFile}
+      >
+        <CircularProgress color="inherit" size={48} />
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          {processingStatusText}
+        </Typography>
+        <Chip
+          icon={<SpeedIcon />}
+          label="Zero UI Freeze (Web Worker Process)"
+          color="primary"
+          variant="filled"
+        />
+      </Backdrop>
+
+      {/* Page Header */}
       <AppPageHeader
         toolId="documents.studio"
-        title="Universal Document & File Studio"
-        description="Dynamic multi-format workstation to view, edit, delete, create, and convert Excel spreadsheets, Word documents, PDFs, Markdown, and Notepad text files."
-        iconName="FolderSpecial"
+        title="Document & File Studio"
+        description="Unified in-browser editor and viewer for Excel spreadsheets, Word documents, Markdown guides, PDFs, and text notes. Smooth, worker-accelerated CRUD."
+        iconName="Description"
         actions={
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            <AppButton
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setIsNewModalOpen(true)}
-            >
-              New File
-            </AppButton>
-
+          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+            {getStorageStatusBadge()}
             <input
               type="file"
               id="studio-file-upload"
               style={{ display: 'none' }}
               onChange={handleFileUpload}
-              accept=".xlsx,.xls,.csv,.txt,.log,.md,.doc,.docx,.pdf,.json,.html,.sql"
+              accept=".xlsx,.xls,.csv,.txt,.json,.md,.doc,.docx,.html,.pdf"
             />
             <label htmlFor="studio-file-upload">
               <AppButton
@@ -340,32 +404,36 @@ export const DocumentStudioPage: React.FC = () => {
                 Upload File
               </AppButton>
             </label>
+            <AppButton
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setIsNewModalOpen(true)}
+            >
+              New File
+            </AppButton>
           </Box>
         }
       />
 
-      {/* Dynamic File Tabs Bar */}
+      {/* Document Workspace Tabs */}
       <Box
         sx={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
           borderBottom: '1px solid var(--color-surface-border)',
           backgroundColor: 'var(--color-surface)',
-          borderRadius: '8px',
-          px: 1,
-          py: 0.5,
-          overflowX: 'auto',
+          borderRadius: '12px',
+          p: 0.5,
         }}
       >
         <Tabs
-          value={activeFile?.id || false}
+          value={activeFile?.id || ''}
           onChange={(_, val) => setActiveFileId(val)}
           variant="scrollable"
           scrollButtons="auto"
           textColor="primary"
           indicatorColor="primary"
-          sx={{ minHeight: 44, flex: 1 }}
+          sx={{ flex: 1, minHeight: 48 }}
         >
           {files.map((file) => (
             <Tab
@@ -377,8 +445,8 @@ export const DocumentStudioPage: React.FC = () => {
                   <Typography
                     variant="body2"
                     sx={{
-                      fontWeight: activeFile?.id === file.id ? 700 : 500,
-                      maxWidth: 160,
+                      fontWeight: file.id === activeFileId ? 700 : 500,
+                      maxWidth: 180,
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
@@ -386,33 +454,37 @@ export const DocumentStudioPage: React.FC = () => {
                   >
                     {file.name}
                   </Typography>
-                  <Tooltip title="Delete file">
+                  {files.length > 1 && (
                     <IconButton
                       size="small"
                       onClick={(e) => {
                         e.stopPropagation();
                         setFileToDelete(file);
                       }}
-                      sx={{ p: 0.25, ml: 0.5, opacity: 0.6, '&:hover': { opacity: 1, color: 'error.main' } }}
+                      sx={{ p: 0.25, ml: 0.5, opacity: 0.5, '&:hover': { opacity: 1, color: 'error.main' } }}
                     >
                       <CloseIcon sx={{ fontSize: 14 }} />
                     </IconButton>
-                  </Tooltip>
+                  )}
                 </Box>
               }
-              sx={{ minHeight: 44, textTransform: 'none', px: 1.5 }}
+              sx={{ minHeight: 48, textTransform: 'none' }}
             />
           ))}
         </Tabs>
 
         {activeFile && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: 1, flexShrink: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', px: 1 }}>
             <Tooltip title="File Options">
               <IconButton size="small" onClick={(e) => setMenuAnchor(e.currentTarget)}>
                 <MoreVertIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
+            <Menu
+              anchorEl={menuAnchor}
+              open={Boolean(menuAnchor)}
+              onClose={() => setMenuAnchor(null)}
+            >
               <MenuItem
                 onClick={() => {
                   setMenuAnchor(null);
@@ -420,26 +492,28 @@ export const DocumentStudioPage: React.FC = () => {
                   setRenameDialogOpen(true);
                 }}
               >
-                <EditIcon fontSize="small" sx={{ mr: 1 }} /> Rename File
+                <EditIcon fontSize="small" sx={{ mr: 1 }} /> Rename
               </MenuItem>
               <MenuItem onClick={handleDuplicate}>
-                <ContentCopyIcon fontSize="small" sx={{ mr: 1 }} /> Duplicate File
+                <ContentCopyIcon fontSize="small" sx={{ mr: 1 }} /> Duplicate
               </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  setMenuAnchor(null);
-                  setFileToDelete(activeFile);
-                }}
-                sx={{ color: 'error.main' }}
-              >
-                <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete File
-              </MenuItem>
+              {files.length > 1 && (
+                <MenuItem
+                  onClick={() => {
+                    setMenuAnchor(null);
+                    setFileToDelete(activeFile);
+                  }}
+                  sx={{ color: 'error.main' }}
+                >
+                  <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
+                </MenuItem>
+              )}
             </Menu>
           </Box>
         )}
       </Box>
 
-      {/* Editor Canvas */}
+      {/* Active Editor Panel */}
       {activeFile ? (
         <Box>
           {(activeFile.type === 'excel' || activeFile.type === 'csv') && (
@@ -453,7 +527,7 @@ export const DocumentStudioPage: React.FC = () => {
           {activeFile.type === 'markdown' && (
             <MarkdownStudioEditor
               fileName={activeFile.name}
-              content={String(activeFile.content)}
+              content={activeFile.content as string}
               onChange={handleUpdateContent}
             />
           )}
@@ -461,7 +535,7 @@ export const DocumentStudioPage: React.FC = () => {
           {activeFile.type === 'word' && (
             <WordStudioEditor
               fileName={activeFile.name}
-              content={String(activeFile.content)}
+              content={activeFile.content as string}
               onChange={handleUpdateContent}
             />
           )}
@@ -470,48 +544,36 @@ export const DocumentStudioPage: React.FC = () => {
             <PdfStudioViewer
               fileName={activeFile.name}
               pdfUrl={activeFile.pdfUrl}
-              textContent={String(activeFile.content)}
-              onExtractToText={(extracted) => {
-                const extractedFile: StudioFile = {
+              textContent={typeof activeFile.content === 'string' ? activeFile.content : ''}
+              onExtractToText={(text) => {
+                const newTxt: StudioFile = {
                   id: `file-${Date.now()}`,
-                  name: `Extracted_from_${activeFile.name}.txt`,
+                  name: `${activeFile.name}_extracted.txt`,
                   type: 'text',
-                  content: extracted,
+                  content: text,
                   createdAt: new Date().toISOString(),
                   updatedAt: new Date().toISOString(),
-                  sizeBytes: extracted.length,
+                  sizeBytes: text.length,
                 };
-                handleCreateFile(extractedFile);
+                handleCreateFile(newTxt);
               }}
             />
           )}
 
-          {activeFile.type === 'text' && (
+          {(activeFile.type === 'text' || activeFile.type === 'code') && (
             <TextStudioEditor
               fileName={activeFile.name}
-              content={String(activeFile.content)}
+              content={activeFile.content as string}
               onChange={handleUpdateContent}
-              language="plaintext"
-            />
-          )}
-
-          {activeFile.type === 'code' && (
-            <TextStudioEditor
-              fileName={activeFile.name}
-              content={String(activeFile.content)}
-              onChange={handleUpdateContent}
-              language={activeFile.name.endsWith('.sql') ? 'sql' : 'json'}
+              language={activeFile.type === 'code' ? 'json' : 'plaintext'}
             />
           )}
         </Box>
       ) : (
         <Box sx={{ textAlign: 'center', py: 8 }}>
-          <Typography variant="h6" sx={{ color: 'var(--color-text-secondary)', mb: 2 }}>
-            No files currently open in workspace
+          <Typography variant="body1" sx={{ color: 'text.secondary' }}>
+            No files available. Click "New File" to create a spreadsheet, note, or rich document.
           </Typography>
-          <AppButton variant="contained" startIcon={<AddIcon />} onClick={() => setIsNewModalOpen(true)}>
-            Create New File
-          </AppButton>
         </Box>
       )}
 
@@ -522,32 +584,22 @@ export const DocumentStudioPage: React.FC = () => {
         onCreate={handleCreateFile}
       />
 
-      {/* Delete Confirmation Dialog */}
-      <AppConfirmDialog
-        open={Boolean(fileToDelete)}
-        title="Delete File"
-        message={`Are you sure you want to delete "${fileToDelete?.name}"? This action removes it from your current workspace session.`}
-        confirmLabel="Delete"
-        isDangerous={true}
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setFileToDelete(null)}
-      />
-
       {/* Rename Dialog */}
       <Dialog open={renameDialogOpen} onClose={() => setRenameDialogOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Rename File</DialogTitle>
+        <DialogTitle>Rename Document</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
+            margin="dense"
+            label="File Name"
             fullWidth
-            size="small"
             value={renameValue}
             onChange={(e) => setRenameValue(e.target.value)}
-            sx={{ mt: 1 }}
+            onKeyDown={(e) => e.key === 'Enter' && handleRename()}
           />
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <AppButton variant="outlined" onClick={() => setRenameDialogOpen(false)}>
+        <DialogActions>
+          <AppButton variant="text" onClick={() => setRenameDialogOpen(false)}>
             Cancel
           </AppButton>
           <AppButton variant="contained" onClick={handleRename}>
@@ -555,6 +607,17 @@ export const DocumentStudioPage: React.FC = () => {
           </AppButton>
         </DialogActions>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AppConfirmDialog
+        open={Boolean(fileToDelete)}
+        title="Delete Document?"
+        message={`Are you sure you want to delete "${fileToDelete?.name}"? Any unsaved changes will be lost.`}
+        confirmLabel="Delete File"
+        isDangerous={true}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setFileToDelete(null)}
+      />
     </Box>
   );
 };

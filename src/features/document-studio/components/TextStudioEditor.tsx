@@ -8,11 +8,13 @@ import DownloadIcon from '@mui/icons-material/Download';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import FindReplaceIcon from '@mui/icons-material/FindReplace';
 import TextFieldsIcon from '@mui/icons-material/TextFields';
+import SpeedIcon from '@mui/icons-material/Speed';
 import { AppCard } from '@shared/components/AppCard/AppCard';
 import { AppButton } from '@shared/components/AppButton/AppButton';
 import { AppCodeEditor } from '@shared/components/AppCodeEditor/AppCodeEditor';
 import { useAppDispatch } from '@app/store';
 import { showToast } from '@app/store/slices/uiSlice';
+import { fileWorkerClient } from '@shared/workers/fileWorkerClient';
 import { saveAs } from 'file-saver';
 
 export interface TextStudioEditorProps {
@@ -34,6 +36,8 @@ export const TextStudioEditor: React.FC<TextStudioEditorProps> = ({
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [findText, setFindText] = useState('');
   const [replaceText, setReplaceText] = useState('');
+  const [useRegex, setUseRegex] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Stats
   const lineCount = content.split('\n').length;
@@ -41,17 +45,25 @@ export const TextStudioEditor: React.FC<TextStudioEditorProps> = ({
   const charCount = content.length;
   const charNoSpaces = content.replace(/\s/g, '').length;
 
-  // Transformations
-  const transformCase = (type: 'upper' | 'lower' | 'title' | 'camel' | 'kebab') => {
+  // Case Transformations (with Worker for large text)
+  const transformCase = async (type: 'upper' | 'lower' | 'title' | 'camel' | 'kebab') => {
     setCaseAnchor(null);
+    if (type === 'upper' || type === 'lower') {
+      setIsProcessing(true);
+      try {
+        const transformed = await fileWorkerClient.cleanText(content, type);
+        onChange(transformed);
+        dispatch(showToast({ message: `Transformed case to ${type}`, severity: 'success' }));
+      } catch {
+        onChange(type === 'upper' ? content.toUpperCase() : content.toLowerCase());
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
+
     let transformed = content;
     switch (type) {
-      case 'upper':
-        transformed = content.toUpperCase();
-        break;
-      case 'lower':
-        transformed = content.toLowerCase();
-        break;
       case 'title':
         transformed = content.replace(/\b\w/g, (c) => c.toUpperCase());
         break;
@@ -73,42 +85,38 @@ export const TextStudioEditor: React.FC<TextStudioEditorProps> = ({
     dispatch(showToast({ message: `Transformed case to ${type}`, severity: 'success' }));
   };
 
-  // Line cleaning
-  const cleanLines = (action: 'sortAsc' | 'sortDesc' | 'dedupe' | 'trim' | 'removeEmpty') => {
+  // Line cleaning via Web Worker
+  const cleanLines = async (action: 'sortAsc' | 'sortDesc' | 'dedupe' | 'trim' | 'removeEmpty') => {
     setCleanAnchor(null);
-    const lines = content.split('\n');
-    let result: string[] = [];
-
-    switch (action) {
-      case 'sortAsc':
-        result = [...lines].sort((a, b) => a.localeCompare(b));
-        break;
-      case 'sortDesc':
-        result = [...lines].sort((a, b) => b.localeCompare(a));
-        break;
-      case 'dedupe':
-        result = Array.from(new Set(lines));
-        break;
-      case 'trim':
-        result = lines.map((l) => l.trim());
-        break;
-      case 'removeEmpty':
-        result = lines.filter((l) => l.trim().length > 0);
-        break;
+    setIsProcessing(true);
+    try {
+      const result = await fileWorkerClient.cleanText(content, action);
+      onChange(result);
+      dispatch(showToast({ message: `Applied ${action} in Web Worker`, severity: 'success' }));
+    } catch (err: any) {
+      dispatch(showToast({ message: `Error processing lines: ${err.message}`, severity: 'error' }));
+    } finally {
+      setIsProcessing(false);
     }
-
-    onChange(result.join('\n'));
-    dispatch(showToast({ message: `Applied line cleaning (${action})`, severity: 'success' }));
   };
 
   // Find & Replace
   const handleReplaceAll = () => {
     if (!findText) return;
-    const escapedFind = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(escapedFind, 'g');
-    const updated = content.replace(regex, replaceText);
-    onChange(updated);
-    dispatch(showToast({ message: `Replaced all instances of "${findText}"`, severity: 'success' }));
+    try {
+      let regex: RegExp;
+      if (useRegex) {
+        regex = new RegExp(findText, 'g');
+      } else {
+        const escapedFind = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        regex = new RegExp(escapedFind, 'g');
+      }
+      const updated = content.replace(regex, replaceText);
+      onChange(updated);
+      dispatch(showToast({ message: `Replaced all instances of "${findText}"`, severity: 'success' }));
+    } catch (e: any) {
+      dispatch(showToast({ message: `Regex error: ${e.message}`, severity: 'error' }));
+    }
   };
 
   // Download
@@ -120,15 +128,23 @@ export const TextStudioEditor: React.FC<TextStudioEditorProps> = ({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <AppCard
-        title="Notepad & Text Utilities"
-        subtitle="Text manipulation, case conversion, line deduplication, and search/replace"
+        title={`Text & Code Editor: ${fileName}`}
+        subtitle="Full-featured text utilities, worker-powered line sorting/deduping, search/replace, and case conversion"
         headerActions={
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Chip
+              icon={<SpeedIcon sx={{ fontSize: 16 }} />}
+              label="Worker Accelerated"
+              size="small"
+              color="success"
+              variant="outlined"
+            />
             <AppButton
               variant="outlined"
               size="small"
               startIcon={<TextFieldsIcon />}
               onClick={(e) => setCaseAnchor(e.currentTarget)}
+              disabled={isProcessing}
             >
               Change Case
             </AppButton>
@@ -145,6 +161,7 @@ export const TextStudioEditor: React.FC<TextStudioEditorProps> = ({
               size="small"
               startIcon={<FilterListIcon />}
               onClick={(e) => setCleanAnchor(e.currentTarget)}
+              disabled={isProcessing}
             >
               Clean Lines
             </AppButton>
@@ -171,7 +188,7 @@ export const TextStudioEditor: React.FC<TextStudioEditorProps> = ({
               startIcon={<DownloadIcon />}
               onClick={handleDownload}
             >
-              Download File
+              Download
             </AppButton>
           </Box>
         }
@@ -193,7 +210,7 @@ export const TextStudioEditor: React.FC<TextStudioEditorProps> = ({
           >
             <TextField
               size="small"
-              placeholder="Find text..."
+              placeholder="Find text or pattern..."
               value={findText}
               onChange={(e) => setFindText(e.target.value)}
               sx={{ minWidth: 200 }}
@@ -205,6 +222,13 @@ export const TextStudioEditor: React.FC<TextStudioEditorProps> = ({
               onChange={(e) => setReplaceText(e.target.value)}
               sx={{ minWidth: 200 }}
             />
+            <AppButton
+              variant={useRegex ? 'contained' : 'outlined'}
+              size="small"
+              onClick={() => setUseRegex(!useRegex)}
+            >
+              .* Regex
+            </AppButton>
             <AppButton variant="contained" size="small" onClick={handleReplaceAll}>
               Replace All
             </AppButton>
