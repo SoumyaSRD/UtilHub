@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { excelService, type ParsedSheetData } from '@shared/services/file/excelService';
+import { fileWorkerClient } from '@shared/workers/fileWorkerClient';
 import { useAppDispatch } from '@app/store';
 import { showToast } from '@app/store/slices/uiSlice';
 import { setActiveDataset, type ActiveDataset } from '@app/store/slices/sharedDataSlice';
@@ -67,7 +68,7 @@ export const useColumnExtractor = () => {
       setCommaResult('');
       setCommaStats(null);
 
-      const parsed = await excelService.parseFile(uploadedFile);
+      const parsed = await fileWorkerClient.parseExcelFile(uploadedFile);
       setParsedData(parsed);
       setSelectedColumns(parsed.columns.slice(0, 3));
       if (parsed.columns.length > 0) {
@@ -99,7 +100,7 @@ export const useColumnExtractor = () => {
 
       dispatch(
         showToast({
-          message: `Loaded "${uploadedFile.name}" with ${parsed.totalRowCount} rows and ${parsed.columns.length} columns.`,
+          message: `Loaded "${uploadedFile.name}" with ${parsed.totalRowCount} rows and ${parsed.columns.length} columns (Web Worker).`,
           severity: 'success',
         })
       );
@@ -279,35 +280,35 @@ export const useColumnExtractor = () => {
     dispatch(showToast({ message: `Downloaded ${filename}`, severity: 'success' }));
   };
 
-  // Table extraction
-  const extractTable = () => {
+  // Table extraction via worker
+  const extractTable = async () => {
     if (!parsedData) return;
     if (selectedColumns.length === 0) {
       dispatch(showToast({ message: 'Please select at least one column to extract', severity: 'warning' }));
       return;
     }
 
-    const filtered = parsedData.rows.map((row) => {
-      const newRow: Record<string, unknown> = {};
-      selectedColumns.forEach((col) => {
-        newRow[col] = row[col] ?? '';
+    try {
+      setIsProcessing(true);
+      const res = await fileWorkerClient.extractColumns(parsedData.rows, selectedColumns);
+      setExtractedRows(res.extractedRows);
+      auditService.record('TOOL_EXECUTED', user.name, 'excel.column-extractor', {
+        mode: 'table',
+        totalRows: parsedData.totalRowCount,
+        columnsExtracted: selectedColumns.length,
+        columns: selectedColumns,
       });
-      return newRow;
-    });
-
-    setExtractedRows(filtered);
-    auditService.record('TOOL_EXECUTED', user.name, 'excel.column-extractor', {
-      mode: 'table',
-      totalRows: parsedData.totalRowCount,
-      columnsExtracted: selectedColumns.length,
-      columns: selectedColumns,
-    });
-    dispatch(
-      showToast({
-        message: `Extracted ${selectedColumns.length} columns across ${filtered.length} rows.`,
-        severity: 'success',
-      })
-    );
+      dispatch(
+        showToast({
+          message: `Extracted ${selectedColumns.length} columns across ${res.extractedRows.length} rows (Web Worker).`,
+          severity: 'success',
+        })
+      );
+    } catch (err) {
+      dispatch(showToast({ message: `Extraction failed: ${err instanceof Error ? err.message : String(err)}`, severity: 'error' }));
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const reset = () => {
@@ -320,16 +321,42 @@ export const useColumnExtractor = () => {
     setCommaStats(null);
   };
 
-  const exportExcel = () => {
+  const exportExcel = async () => {
     if (!extractedRows || extractedRows.length === 0) return;
-    excelService.exportToExcel(extractedRows, `extracted_${parsedData?.fileName || 'dataset'}`);
-    auditService.record('TOOL_EXPORTED', user.name, 'excel.column-extractor', { format: 'xlsx' });
+    try {
+      const baseName = `extracted_${parsedData?.fileName?.replace(/\.[^/.]+$/, '') || 'dataset'}`;
+      const res = await fileWorkerClient.exportSpreadsheet(
+        [{ sheetName: 'Extracted', columns: selectedColumns, rows: extractedRows }],
+        'xlsx',
+        `${baseName}.xlsx`
+      );
+      if (res.buffer) {
+        saveAs(new Blob([res.buffer], { type: res.mimeType }), res.fileName);
+      }
+      auditService.record('TOOL_EXPORTED', user.name, 'excel.column-extractor', { format: 'xlsx' });
+      dispatch(showToast({ message: `Exported ${res.fileName} successfully`, severity: 'success' }));
+    } catch {
+      excelService.exportToExcel(extractedRows, `extracted_${parsedData?.fileName || 'dataset'}`);
+    }
   };
 
-  const exportCsv = () => {
+  const exportCsv = async () => {
     if (!extractedRows || extractedRows.length === 0) return;
-    excelService.exportToCsv(extractedRows, `extracted_${parsedData?.fileName || 'dataset'}`);
-    auditService.record('TOOL_EXPORTED', user.name, 'excel.column-extractor', { format: 'csv' });
+    try {
+      const baseName = `extracted_${parsedData?.fileName?.replace(/\.[^/.]+$/, '') || 'dataset'}`;
+      const res = await fileWorkerClient.exportSpreadsheet(
+        [{ sheetName: 'Extracted', columns: selectedColumns, rows: extractedRows }],
+        'csv',
+        `${baseName}.csv`
+      );
+      if (res.text) {
+        saveAs(new Blob([res.text], { type: res.mimeType }), res.fileName);
+      }
+      auditService.record('TOOL_EXPORTED', user.name, 'excel.column-extractor', { format: 'csv' });
+      dispatch(showToast({ message: `Exported ${res.fileName} successfully`, severity: 'success' }));
+    } catch {
+      excelService.exportToCsv(extractedRows, `extracted_${parsedData?.fileName || 'dataset'}`);
+    }
   };
 
   return {

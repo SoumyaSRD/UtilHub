@@ -1,0 +1,68 @@
+// Dracula Pro Theme (with Glassmorphic Tokens)
+@use '../styles/theme-engine' as *;
+
+$dracula-tokens: (
+  'primary': #bd93f9,
+  'primary-hover': #caa7fc,
+  'primary-light': #382c52,
+  'primary-contrast': #282a36,
+  'primary-glow': rgba(189, 147, 249, 0.4),
+
+  'secondary': #ff79c6,
+  'secondary-hover': #ff92d0,
+  'secondary-light': #472138,
+  'secondary-glow': rgba(255, 121, 198, 0.35),
+
+  'background': #1e1f29,
+  'surface': #282a36,
+  'surface-hover': #343746,
+  'surface-border': #44475a,
+
+  'glass-bg': rgba(40, 42, 54, 0.75),
+  'glass-surface-hover': rgba(52, 55, 70, 0.85),
+  'glass-header-bg': rgba(33, 34, 44, 0.82),
+  'glass-sidebar-bg': rgba(33, 34, 44, 0.85),
+  'glass-border': rgba(68, 71, 90, 0.6),
+  'glass-border-glow': 0 0 12px rgba(189, 147, 249, 0.2),
+  'glass-blur': blur(16px),
+  'glass-shadow': '0 8px 32px 0 rgba(0, 0, 0, 0.45)',
+
+  'ambient-gradient': 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(189, 147, 249, 0.12), transparent 70%), radial-gradient(ellipse 60% 40% at 100% 100%, rgba(255, 121, 198, 0.1), transparent 60%)',
+
+  'sidebar-bg': #21222c,
+  'sidebar-text': #959bb4,
+  'sidebar-text-bright': #f8f8f2,
+  'sidebar-hover-bg': #343746,
+  'sidebar-active-bg': #44475a,
+  'sidebar-active-text': #bd93f9,
+  'sidebar-border': #383a4c,
+
+  'header-bg': #21222c,
+  'header-border': #383a4c,
+
+  'text-primary': #f8f8f2,
+  'text-secondary': #a7acc0,
+  'text-muted': #6272a4,
+
+  'border': #44475a,
+  'border-subtle': #2d3040,
+  'divider': #343746,
+
+  'success': #50fa7b,
+  'success-bg': rgba(80, 250, 123, 0.12),
+  'warning': #ffb86c,
+  'warning-bg': rgba(255, 184, 108, 0.12),
+  'error': #ff5555,
+  'error-bg': rgba(255, 85, 85, 0.14),
+  'info': #8be9fd,
+  'info-bg': rgba(139, 233, 253, 0.12),
+
+  'code-bg': #181920,
+  'code-text': #f8f8f2,
+  'code-border': #383a4c,
+
+  'shadow-card': '0 1px 4px 0 rgba(0, 0, 0, 0.35)',
+  'shadow-elevation': '0 4px 12px -1px rgba(0, 0, 0, 0.5)'
+);
+
+@include generate-theme-tokens('dracula', $dracula-tokens);

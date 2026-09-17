@@ -4,6 +4,7 @@ import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import { AppCopyButton } from '../AppCopyButton/AppCopyButton';
 import { useAppSelector } from '@app/store';
+import { isDarkTheme } from '@theme/types';
 
 const Monaco = lazy(() => import('@monaco-editor/react'));
 
@@ -27,7 +28,7 @@ export const AppCodeEditor: React.FC<AppCodeEditorProps> = ({
   showCopy = true,
 }) => {
   const currentTheme = useAppSelector((state) => state.preferences.themeMode);
-  const monacoTheme = currentTheme === 'dark' ? 'vs-dark' : 'light';
+  const monacoTheme = isDarkTheme(currentTheme) ? 'vs-dark' : 'light';
 
   return (
     <Box

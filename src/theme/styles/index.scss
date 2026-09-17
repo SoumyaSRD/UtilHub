@@ -7,6 +7,11 @@
 
 @use '../themes/light';
 @use '../themes/dark';
+@use '../themes/solo-leveling';
+@use '../themes/cyberpunk-neon';
+@use '../themes/dracula';
+@use '../themes/nordic-frost';
+@use '../themes/tokyo-sunset';
 @use '../themes/enterprise-blue';
 @use '../themes/enterprise-green';
 @use '../themes/high-contrast';
@@ -30,6 +35,12 @@
   --header-height: #{$header-height};
   --sidebar-width-expanded: #{$sidebar-width-expanded};
   --sidebar-width-collapsed: #{$sidebar-width-collapsed};
+
+  // Glass defaults
+  --glass-blur: blur(16px);
+  --glass-bg: var(--color-surface);
+  --glass-border: var(--color-surface-border);
+  --glass-shadow: var(--shadow-card);
 }
 
 *, *::before, *::after {
@@ -43,9 +54,30 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background-color: var(--color-background);
+  background-image: var(--ambient-gradient, none);
+  background-attachment: fixed;
   color: var(--color-text-primary);
   overflow-x: hidden;
   @include scrollbar-style;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+// Glass Effect Utilities
+.glass-card {
+  @include glass-surface;
+  border-radius: 12px;
+}
+
+.glass-header {
+  @include glass-header;
+}
+
+.glass-sidebar {
+  @include glass-sidebar;
+}
+
+.glow-primary {
+  box-shadow: 0 0 16px var(--color-primary-glow, rgba(59, 130, 246, 0.4));
 }
 
 a {

@@ -63,8 +63,10 @@ export const Header: React.FC = () => {
       component="header"
       sx={{
         height: 'var(--header-height, 64px)',
-        backgroundColor: 'var(--color-header-bg)',
-        borderBottom: '1px solid var(--color-header-border)',
+        backgroundColor: 'var(--glass-header-bg, var(--color-header-bg))',
+        backdropFilter: 'var(--glass-blur, blur(16px))',
+        WebkitBackdropFilter: 'var(--glass-blur, blur(16px))',
+        borderBottom: '1px solid var(--glass-border, var(--color-header-border))',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -72,7 +74,8 @@ export const Header: React.FC = () => {
         position: 'sticky',
         top: 0,
         zIndex: 100,
-        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.03)',
+        boxShadow: 'var(--glass-shadow, 0 2px 10px rgba(0, 0, 0, 0.05))',
+        transition: 'background-color 0.25s ease, border-color 0.25s ease',
       }}
     >
       {/* Left side: Brand + Mobile/Desktop Sidebar Toggle */}
@@ -269,38 +272,97 @@ export const Header: React.FC = () => {
             paper: {
               sx: {
                 mt: 1,
-                borderRadius: '8px',
-                border: '1px solid var(--color-surface-border)',
-                backgroundColor: 'var(--color-surface)',
-                minWidth: 220,
+                borderRadius: '12px',
+                border: '1px solid var(--glass-border, var(--color-surface-border))',
+                backgroundColor: 'var(--glass-bg, var(--color-surface))',
+                backdropFilter: 'var(--glass-blur, blur(16px))',
+                WebkitBackdropFilter: 'var(--glass-blur, blur(16px))',
+                boxShadow: 'var(--glass-shadow, 0 10px 40px rgba(0,0,0,0.4))',
+                minWidth: 320,
+                maxWidth: 380,
               },
             },
           }}
         >
-          <Box sx={{ px: 2, py: 1, borderBottom: '1px solid var(--color-divider)' }}>
-            <Typography variant="caption" sx={{ fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
-              Color Theme
+          <Box sx={{ px: 2, py: 1.2, borderBottom: '1px solid var(--color-divider)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="caption" sx={{ fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Color Theme & Style
             </Typography>
+            <Chip label="Glassmorphic" size="small" sx={{ height: 16, fontSize: '0.6rem', fontWeight: 700, backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary)' }} />
           </Box>
           {AVAILABLE_THEMES.map((theme) => (
             <MenuItem
               key={theme.id}
               selected={theme.id === currentTheme}
               onClick={() => handleSelectTheme(theme.id)}
-              sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1 }}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                py: 1.2,
+                px: 2,
+                transition: 'all 0.15s ease',
+                '&.Mui-selected': {
+                  backgroundColor: 'var(--color-surface-hover)',
+                },
+                '&:hover': {
+                  backgroundColor: 'var(--color-surface-hover)',
+                },
+              }}
             >
               <Box
                 sx={{
-                  width: 14,
-                  height: 14,
+                  width: 16,
+                  height: 16,
                   borderRadius: '50%',
-                  backgroundColor: theme.accentColor,
-                  border: '1px solid rgba(0,0,0,0.2)',
+                  background: theme.secondaryAccent
+                    ? `linear-gradient(135deg, ${theme.accentColor} 50%, ${theme.secondaryAccent} 50%)`
+                    : theme.accentColor,
+                  boxShadow: `0 0 10px ${theme.accentColor}90`,
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  flexShrink: 0,
                 }}
               />
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: theme.id === currentTheme ? 700 : 500, fontSize: '0.8125rem' }}>
-                  {theme.name}
+              <Box sx={{ flexGrow: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      fontWeight: theme.id === currentTheme ? 700 : 500,
+                      fontSize: '0.8125rem',
+                      color: theme.id === currentTheme ? 'var(--color-primary)' : 'var(--color-text-primary)',
+                    }}
+                  >
+                    {theme.name}
+                  </Typography>
+                  {theme.badge && (
+                    <Chip
+                      label={theme.badge}
+                      size="small"
+                      sx={{
+                        height: 16,
+                        fontSize: '0.625rem',
+                        fontWeight: 700,
+                        backgroundColor: theme.accentColor,
+                        color: theme.isDark ? '#000000' : '#ffffff',
+                        px: 0.5,
+                      }}
+                    />
+                  )}
+                </Box>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'var(--color-text-muted)',
+                    fontSize: '0.7rem',
+                    display: 'block',
+                    maxWidth: 220,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {theme.description}
                 </Typography>
               </Box>
             </MenuItem>

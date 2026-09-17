@@ -67,11 +67,14 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed, onNavigate }
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        backgroundColor: 'var(--color-sidebar-bg)',
+        backgroundColor: 'var(--glass-sidebar-bg, var(--color-sidebar-bg))',
+        backdropFilter: 'var(--glass-blur, blur(16px))',
+        WebkitBackdropFilter: 'var(--glass-blur, blur(16px))',
         color: 'var(--color-sidebar-text)',
         overflowY: 'auto',
         overflowX: 'hidden',
         userSelect: 'none',
+        transition: 'background-color 0.25s ease, color 0.25s ease',
         '&::-webkit-scrollbar': { width: '4px' },
         '&::-webkit-scrollbar-thumb': { backgroundColor: 'var(--color-sidebar-hover-bg)' },
       }}
@@ -391,7 +394,7 @@ export const Sidebar: React.FC = () => {
           height: 'calc(100vh - var(--header-height, 64px))',
           position: 'sticky',
           top: 'var(--header-height, 64px)',
-          borderRight: '1px solid var(--color-sidebar-border)',
+          borderRight: '1px solid var(--glass-border, var(--color-sidebar-border))',
           transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           zIndex: 90,
         }}
@@ -405,8 +408,8 @@ export const Sidebar: React.FC = () => {
             alignItems: 'center',
             justifyContent: collapsed ? 'center' : 'flex-end',
             p: 1,
-            borderTop: '1px solid var(--color-sidebar-border)',
-            backgroundColor: 'var(--color-sidebar-bg)',
+            borderTop: '1px solid var(--glass-border, var(--color-sidebar-border))',
+            backgroundColor: 'transparent',
           }}
         >
           <Tooltip title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} placement="right">

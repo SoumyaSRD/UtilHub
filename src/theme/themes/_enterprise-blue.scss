@@ -1,50 +1,68 @@
-[data-theme='enterprise-blue'] {
-  --color-primary: #0284c7;
-  --color-primary-hover: #0369a1;
-  --color-primary-light: #e0f2fe;
-  --color-primary-contrast: #ffffff;
+// Corporate Cobalt Theme
+@use '../styles/theme-engine' as *;
 
-  --color-secondary: #334155;
-  --color-secondary-hover: #1e293b;
-  --color-secondary-light: #f1f5f9;
+$enterprise-blue-tokens: (
+  'primary': #0284c7,
+  'primary-hover': #0369a1,
+  'primary-light': #e0f2fe,
+  'primary-contrast': #ffffff,
+  'primary-glow': rgba(2, 132, 199, 0.35),
 
-  --color-background: #f0f6fc;
-  --color-surface: #ffffff;
-  --color-surface-hover: #f1f5f9;
-  --color-surface-border: #d0d7de;
+  'secondary': #334155,
+  'secondary-hover': #1e293b,
+  'secondary-light': #f1f5f9,
+  'secondary-glow': rgba(51, 65, 85, 0.2),
 
-  --color-sidebar-bg: #031c38;
-  --color-sidebar-text: #8da4be;
-  --color-sidebar-text-bright: #ffffff;
-  --color-sidebar-hover-bg: #0a2d54;
-  --color-sidebar-active-bg: #0284c7;
-  --color-sidebar-active-text: #ffffff;
-  --color-sidebar-border: #0e3766;
+  'background': #f0f6fc,
+  'surface': #ffffff,
+  'surface-hover': #f1f5f9,
+  'surface-border': #d0d7de,
 
-  --color-header-bg: #ffffff;
-  --color-header-border: #d0d7de;
+  'glass-bg': rgba(255, 255, 255, 0.85),
+  'glass-surface-hover': rgba(240, 246, 252, 0.95),
+  'glass-header-bg': rgba(255, 255, 255, 0.88),
+  'glass-sidebar-bg': rgba(240, 246, 252, 0.92),
+  'glass-border': rgba(208, 215, 222, 0.8),
+  'glass-border-glow': 0 0 10px rgba(2, 132, 199, 0.15),
+  'glass-blur': blur(16px),
+  'glass-shadow': '0 8px 30px rgba(2, 132, 199, 0.06)',
 
-  --color-text-primary: #0c1b2a;
-  --color-text-secondary: #334155;
-  --color-text-muted: #64748b;
+  'ambient-gradient': 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(2, 132, 199, 0.08), transparent 70%)',
 
-  --color-border: #cbd5e1;
-  --color-border-subtle: #e2e8f0;
-  --color-divider: #e2e8f0;
+  'sidebar-bg': #f0f6fc,
+  'sidebar-text': #334155,
+  'sidebar-text-bright': #0284c7,
+  'sidebar-hover-bg': #e0f2fe,
+  'sidebar-active-bg': #0284c7,
+  'sidebar-active-text': #ffffff,
+  'sidebar-border': #d0d7de,
 
-  --color-success: #059669;
-  --color-success-bg: #ecfdf5;
-  --color-warning: #d97706;
-  --color-warning-bg: #fffbeb;
-  --color-error: #dc2626;
-  --color-error-bg: #fef2f2;
-  --color-info: #0284c7;
-  --color-info-bg: #f0f9ff;
+  'header-bg': #ffffff,
+  'header-border': #d0d7de,
 
-  --color-code-bg: #f1f5f9;
-  --color-code-text: #0f172a;
-  --color-code-border: #e2e8f0;
+  'text-primary': #0c1b2a,
+  'text-secondary': #334155,
+  'text-muted': #64748b,
 
-  --shadow-card: 0 1px 3px 0 rgba(2, 132, 199, 0.08);
-  --shadow-elevation: 0 4px 6px -1px rgba(2, 132, 199, 0.1);
-}
+  'border': #cbd5e1,
+  'border-subtle': #e2e8f0,
+  'divider': #e2e8f0,
+
+  'success': #059669,
+  'success-bg': #ecfdf5,
+  'warning': #d97706,
+  'warning-bg': #fffbeb,
+  'error': #dc2626,
+  'error-bg': #fef2f2,
+  'info': #0284c7,
+  'info-bg': #f0f9ff,
+
+  'code-bg': #f0f6fc,
+  'code-text': #0c1b2a,
+  'code-border': #d0d7de,
+
+  'shadow-card': '0 1px 3px 0 rgba(0, 0, 0, 0.07), 0 1px 2px 0 rgba(0, 0, 0, 0.04)',
+  'shadow-elevation': '0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04)'
+);
+
+@include generate-theme-tokens('enterprise-blue', $enterprise-blue-tokens);

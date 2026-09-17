@@ -42,8 +42,11 @@ import { showToast } from '@app/store/slices/uiSlice';
 import {
   computeJsonDiff,
   type DiffChangeType,
+  type JsonDiffSummary,
 } from '../services/jsonDiffService';
+import { fileWorkerClient } from '@shared/workers/fileWorkerClient';
 import { formatJson } from '@features/code-formatter/services/codeFormatters';
+import { isDarkTheme } from '@theme/types';
 import { saveAs } from 'file-saver';
 
 const MonacoDiffEditor = lazy(() =>
@@ -164,7 +167,7 @@ const PRESET_SAMPLES = [
 export const JsonDiffViewer: React.FC = () => {
   const dispatch = useAppDispatch();
   const currentTheme = useAppSelector((state) => state.preferences.themeMode);
-  const monacoTheme = currentTheme === 'dark' ? 'vs-dark' : 'light';
+  const monacoTheme = isDarkTheme(currentTheme) ? 'vs-dark' : 'light';
 
   const [jsonA, setJsonA] = useState(PRESET_SAMPLES[0].left);
   const [jsonB, setJsonB] = useState(PRESET_SAMPLES[0].right);
@@ -196,22 +199,60 @@ export const JsonDiffViewer: React.FC = () => {
     }
   }, [jsonB]);
 
-  // Compute Diff Summary
-  const { diffSummary, parseError } = useMemo(() => {
-    if (!validationA.valid || !validationB.valid) {
-      return {
-        diffSummary: null,
-        parseError: !validationA.valid
-          ? `Original JSON (Left) has syntax error: ${validationA.error}`
-          : `Modified JSON (Right) has syntax error: ${validationB.error}`,
-      };
-    }
+  // Compute Diff Summary via Web Worker
+  const [diffSummary, setDiffSummary] = useState<JsonDiffSummary | null>(() => {
     try {
-      const summary = computeJsonDiff(jsonA, jsonB, sortKeys);
-      return { diffSummary: summary, parseError: null };
-    } catch (err: any) {
-      return { diffSummary: null, parseError: err.message || 'Error computing diff' };
+      return computeJsonDiff(PRESET_SAMPLES[0].left, PRESET_SAMPLES[0].right, false);
+    } catch {
+      return null;
     }
+  });
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [isDiffing, setIsDiffing] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    if (!validationA.valid || !validationB.valid) {
+      setDiffSummary(null);
+      setParseError(
+        !validationA.valid
+          ? `Original JSON (Left) has syntax error: ${validationA.error}`
+          : `Modified JSON (Right) has syntax error: ${validationB.error}`
+      );
+      return;
+    }
+
+    let isCurrent = true;
+    setIsDiffing(true);
+
+    const timer = setTimeout(async () => {
+      try {
+        const summary = await fileWorkerClient.computeJsonDiff(jsonA, jsonB, sortKeys);
+        if (isCurrent) {
+          setDiffSummary(summary as JsonDiffSummary);
+          setParseError(null);
+        }
+      } catch {
+        try {
+          const fallback = computeJsonDiff(jsonA, jsonB, sortKeys);
+          if (isCurrent) {
+            setDiffSummary(fallback);
+            setParseError(null);
+          }
+        } catch (err: any) {
+          if (isCurrent) {
+            setDiffSummary(null);
+            setParseError(err.message || 'Error computing diff');
+          }
+        }
+      } finally {
+        if (isCurrent) setIsDiffing(false);
+      }
+    }, 80);
+
+    return () => {
+      isCurrent = false;
+      clearTimeout(timer);
+    };
   }, [jsonA, jsonB, sortKeys, validationA, validationB]);
 
   // Filtered diff entries
@@ -439,8 +480,9 @@ export const JsonDiffViewer: React.FC = () => {
           </Box>
 
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {isDiffing && <CircularProgress size={14} color="primary" />}
             <Typography variant="caption" sx={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>
-              Live Syntax Checking Active
+              {isDiffing ? 'Computing diff via Web Worker...' : 'Web Worker Real-time Diff Active'}
             </Typography>
           </Box>
         </Box>

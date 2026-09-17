@@ -180,3 +180,7 @@ export function minifyCss(css: string): string {
     .replace(/;}/g, '}')
     .trim();
 }
+
+// Re-export TypeScript / JavaScript formatters
+export { formatJsTs, minifyJsTs, type JsTsFormatOptions } from './jsTsFormatter';
+

@@ -169,6 +169,105 @@ class FileWorkerClient {
             );
         return { rows: filtered } as unknown as T;
       }
+      case 'REMOVE_DUPLICATES': {
+        const seen = new Map<string, Record<string, unknown>>();
+        const rowsToScan = req.keepStrategy === 'first' ? req.rows : [...req.rows].reverse();
+        rowsToScan.forEach((row) => {
+          const key = req.keyColumns.map((col) => String(row[col] ?? '').trim().toLowerCase()).join('___');
+          if (!seen.has(key)) {
+            seen.set(key, row);
+          }
+        });
+        const dedupedRows = Array.from(seen.values());
+        if (req.keepStrategy === 'last') {
+          dedupedRows.reverse();
+        }
+        return {
+          cleanedRows: dedupedRows,
+          duplicatesRemoved: req.rows.length - dedupedRows.length,
+        } as unknown as T;
+      }
+      case 'EXTRACT_COLUMNS': {
+        const cols = req.columns;
+        const extracted = req.rows.map((r) => {
+          const out: Record<string, unknown> = {};
+          cols.forEach((c) => {
+            out[c] = r[c] ?? '';
+          });
+          return out;
+        });
+        return { extractedRows: extracted } as unknown as T;
+      }
+      case 'COMPUTE_JSON_DIFF': {
+        const sortKeysFn = (obj: any): any => {
+          if (typeof obj !== 'object' || obj === null) return obj;
+          if (Array.isArray(obj)) return obj.map(sortKeysFn);
+          const keys = Object.keys(obj).sort();
+          return keys.reduce((acc: any, k) => {
+            acc[k] = sortKeysFn(obj[k]);
+            return acc;
+          }, {});
+        };
+
+        const compare = (left: any, right: any, currentPath = ''): any[] => {
+          const diffs: any[] = [];
+          if (left === right) return diffs;
+          if (typeof left !== typeof right || Array.isArray(left) !== Array.isArray(right)) {
+            diffs.push({ path: currentPath || 'root', type: 'TYPE_CHANGED', leftValue: left, rightValue: right });
+            return diffs;
+          }
+          if (left === null || right === null) {
+            if (left !== right) diffs.push({ path: currentPath || 'root', type: 'MODIFIED', leftValue: left, rightValue: right });
+            return diffs;
+          }
+          if (Array.isArray(left) && Array.isArray(right)) {
+            const maxLen = Math.max(left.length, right.length);
+            for (let i = 0; i < maxLen; i++) {
+              const itemPath = currentPath ? `${currentPath}[${i}]` : `[${i}]`;
+              if (i >= left.length) diffs.push({ path: itemPath, type: 'ADDED', rightValue: right[i] });
+              else if (i >= right.length) diffs.push({ path: itemPath, type: 'REMOVED', leftValue: left[i] });
+              else diffs.push(...compare(left[i], right[i], itemPath));
+            }
+            return diffs;
+          }
+          if (typeof left === 'object' && typeof right === 'object') {
+            const allKeys = Array.from(new Set([...Object.keys(left), ...Object.keys(right)]));
+            allKeys.forEach((key) => {
+              const keyPath = currentPath ? `${currentPath}.${key}` : key;
+              const hasLeft = Object.prototype.hasOwnProperty.call(left, key);
+              const hasRight = Object.prototype.hasOwnProperty.call(right, key);
+              if (!hasLeft && hasRight) diffs.push({ path: keyPath, type: 'ADDED', rightValue: right[key] });
+              else if (hasLeft && !hasRight) diffs.push({ path: keyPath, type: 'REMOVED', leftValue: left[key] });
+              else diffs.push(...compare(left[key], right[key], keyPath));
+            });
+            return diffs;
+          }
+          diffs.push({ path: currentPath || 'root', type: 'MODIFIED', leftValue: left, rightValue: right });
+          return diffs;
+        };
+
+        let parsedA = JSON.parse(req.jsonStrA);
+        let parsedB = JSON.parse(req.jsonStrB);
+        if (req.sortKeys) {
+          parsedA = sortKeysFn(parsedA);
+          parsedB = sortKeysFn(parsedB);
+        }
+        const entries = compare(parsedA, parsedB);
+        const addedCount = entries.filter((e) => e.type === 'ADDED').length;
+        const removedCount = entries.filter((e) => e.type === 'REMOVED').length;
+        const modifiedCount = entries.filter((e) => e.type === 'MODIFIED').length;
+        const typeChangedCount = entries.filter((e) => e.type === 'TYPE_CHANGED').length;
+
+        return {
+          entries,
+          addedCount,
+          removedCount,
+          modifiedCount,
+          typeChangedCount,
+          unchangedCount: 0,
+          isIdentical: entries.length === 0,
+        } as unknown as T;
+      }
     }
   }
 
@@ -253,6 +352,67 @@ class FileWorkerClient {
     });
     return res.rows;
   }
+
+  /**
+   * Remove duplicates using Web Worker
+   */
+  public async removeDuplicates(
+    rows: Record<string, unknown>[],
+    keyColumns: string[],
+    keepStrategy: 'first' | 'last' = 'first'
+  ): Promise<{ cleanedRows: Record<string, unknown>[]; duplicatesRemoved: number }> {
+    const id = `dedupe-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    return this.postRequest({
+      type: 'REMOVE_DUPLICATES',
+      id,
+      rows,
+      keyColumns,
+      keepStrategy,
+    });
+  }
+
+  /**
+   * Extract columns across large row datasets using Web Worker
+   */
+  public async extractColumns(
+    rows: Record<string, unknown>[],
+    columns: string[]
+  ): Promise<{ extractedRows: Record<string, unknown>[] }> {
+    const id = `extract-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    return this.postRequest({
+      type: 'EXTRACT_COLUMNS',
+      id,
+      rows,
+      columns,
+    });
+  }
+
+  /**
+   * Compare two JSON payloads in Web Worker
+   */
+  public async computeJsonDiff(
+    jsonStrA: string,
+    jsonStrB: string,
+    sortKeys = false
+  ): Promise<{
+    entries: any[];
+    addedCount: number;
+    removedCount: number;
+    modifiedCount: number;
+    typeChangedCount: number;
+    unchangedCount: number;
+    isIdentical: boolean;
+  }> {
+    const id = `jsondiff-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    return this.postRequest({
+      type: 'COMPUTE_JSON_DIFF',
+      id,
+      jsonStrA,
+      jsonStrB,
+      sortKeys,
+    });
+  }
 }
 
 export const fileWorkerClient = new FileWorkerClient();
+

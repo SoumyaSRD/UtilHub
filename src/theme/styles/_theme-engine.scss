@@ -1,0 +1,81 @@
+@use 'sass:map';
+
+// Dynamic SCSS Theme Engine
+// Allows registering any number of present or future themes via declarative map tokens
+
+@mixin generate-theme-tokens($theme-id, $tokens) {
+  [data-theme='#{$theme-id}'] {
+    // Primary Brand Colors
+    --color-primary: #{map.get($tokens, 'primary')};
+    --color-primary-hover: #{map.get($tokens, 'primary-hover')};
+    --color-primary-light: #{map.get($tokens, 'primary-light')};
+    --color-primary-contrast: #{map.get($tokens, 'primary-contrast')};
+    --color-primary-glow: #{map.get($tokens, 'primary-glow')};
+
+    // Secondary Accent Colors
+    --color-secondary: #{map.get($tokens, 'secondary')};
+    --color-secondary-hover: #{map.get($tokens, 'secondary-hover')};
+    --color-secondary-light: #{map.get($tokens, 'secondary-light')};
+    --color-secondary-glow: #{map.get($tokens, 'secondary-glow')};
+
+    // Canvas & Surfaces
+    --color-background: #{map.get($tokens, 'background')};
+    --color-surface: #{map.get($tokens, 'surface')};
+    --color-surface-hover: #{map.get($tokens, 'surface-hover')};
+    --color-surface-border: #{map.get($tokens, 'surface-border')};
+
+    // Glassmorphic Tokens (Frosted Glass Effect)
+    --glass-bg: #{map.get($tokens, 'glass-bg')};
+    --glass-surface-hover: #{map.get($tokens, 'glass-surface-hover')};
+    --glass-header-bg: #{map.get($tokens, 'glass-header-bg')};
+    --glass-sidebar-bg: #{map.get($tokens, 'glass-sidebar-bg')};
+    --glass-border: #{map.get($tokens, 'glass-border')};
+    --glass-border-glow: #{map.get($tokens, 'glass-border-glow')};
+    --glass-blur: #{map.get($tokens, 'glass-blur')};
+    --glass-shadow: #{map.get($tokens, 'glass-shadow')};
+
+    // Ambient Backdrop Mesh
+    --ambient-gradient: #{map.get($tokens, 'ambient-gradient')};
+
+    // Navigation & Shell Chrome
+    --color-sidebar-bg: #{map.get($tokens, 'sidebar-bg')};
+    --color-sidebar-text: #{map.get($tokens, 'sidebar-text')};
+    --color-sidebar-text-bright: #{map.get($tokens, 'sidebar-text-bright')};
+    --color-sidebar-hover-bg: #{map.get($tokens, 'sidebar-hover-bg')};
+    --color-sidebar-active-bg: #{map.get($tokens, 'sidebar-active-bg')};
+    --color-sidebar-active-text: #{map.get($tokens, 'sidebar-active-text')};
+    --color-sidebar-border: #{map.get($tokens, 'sidebar-border')};
+
+    --color-header-bg: #{map.get($tokens, 'header-bg')};
+    --color-header-border: #{map.get($tokens, 'header-border')};
+
+    // Typography
+    --color-text-primary: #{map.get($tokens, 'text-primary')};
+    --color-text-secondary: #{map.get($tokens, 'text-secondary')};
+    --color-text-muted: #{map.get($tokens, 'text-muted')};
+
+    // Borders & Dividers
+    --color-border: #{map.get($tokens, 'border')};
+    --color-border-subtle: #{map.get($tokens, 'border-subtle')};
+    --color-divider: #{map.get($tokens, 'divider')};
+
+    // State Colors
+    --color-success: #{map.get($tokens, 'success')};
+    --color-success-bg: #{map.get($tokens, 'success-bg')};
+    --color-warning: #{map.get($tokens, 'warning')};
+    --color-warning-bg: #{map.get($tokens, 'warning-bg')};
+    --color-error: #{map.get($tokens, 'error')};
+    --color-error-bg: #{map.get($tokens, 'error-bg')};
+    --color-info: #{map.get($tokens, 'info')};
+    --color-info-bg: #{map.get($tokens, 'info-bg')};
+
+    // Code & Terminal Environments
+    --color-code-bg: #{map.get($tokens, 'code-bg')};
+    --color-code-text: #{map.get($tokens, 'code-text')};
+    --color-code-border: #{map.get($tokens, 'code-border')};
+
+    // Shadows
+    --shadow-card: #{map.get($tokens, 'shadow-card')};
+    --shadow-elevation: #{map.get($tokens, 'shadow-elevation')};
+  }
+}

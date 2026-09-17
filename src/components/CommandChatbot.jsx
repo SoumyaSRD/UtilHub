@@ -625,18 +625,18 @@ export const CommandChatbot = () => {
             maxWidth: 'calc(100vw - 32px)',
             height: '650px',
             maxHeight: 'calc(100vh - 48px)',
-            backgroundColor: 'rgba(15, 23, 42, 0.96)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: isDraggingFile ? '2px dashed #38bdf8' : '1px solid rgba(148, 163, 184, 0.25)',
+            backgroundColor: 'var(--glass-bg, var(--color-surface))',
+            backdropFilter: 'var(--glass-blur, blur(20px))',
+            WebkitBackdropFilter: 'var(--glass-blur, blur(20px))',
+            border: isDraggingFile ? '2px dashed var(--color-primary)' : '1px solid var(--glass-border, var(--color-border))',
             borderRadius: '16px',
-            boxShadow: '0 25px 60px -12px rgba(0, 0, 0, 0.65), 0 0 35px rgba(99, 102, 241, 0.25)',
+            boxShadow: 'var(--glass-shadow, 0 25px 60px -12px rgba(0, 0, 0, 0.65))',
             zIndex: 9998,
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-            color: '#f1f5f9',
+            color: 'var(--color-text-primary)',
           }}
         >
           {/* Header */}
@@ -646,14 +646,14 @@ export const CommandChatbot = () => {
               alignItems: 'center',
               justifyContent: 'space-between',
               padding: '12px 16px',
-              borderBottom: '1px solid rgba(148, 163, 184, 0.15)',
-              backgroundColor: 'rgba(30, 41, 59, 0.7)',
+              borderBottom: '1px solid var(--glass-border, var(--color-border-subtle))',
+              backgroundColor: 'var(--glass-header-bg, var(--color-surface))',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981', boxShadow: '0 0 8px #10b981' }} />
-              <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#e2e8f0' }}>AI Command Orchestrator</span>
-              <span style={{ fontSize: '0.7rem', backgroundColor: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', padding: '2px 6px', borderRadius: '999px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--color-primary)', boxShadow: '0 0 8px var(--color-primary-glow)' }} />
+              <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-text-primary)' }}>AI Command Orchestrator</span>
+              <span style={{ fontSize: '0.7rem', backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary)', padding: '2px 6px', borderRadius: '999px', fontWeight: 600 }}>
                 Active
               </span>
             </div>
@@ -708,15 +708,15 @@ export const CommandChatbot = () => {
                 style={{
                   alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
                   maxWidth: '92%',
-                  backgroundColor: m.role === 'user' ? '#3b82f6' : 'rgba(30, 41, 59, 0.85)',
-                  color: m.role === 'user' ? '#ffffff' : '#f1f5f9',
+                  backgroundColor: m.role === 'user' ? 'var(--color-primary)' : 'var(--color-surface)',
+                  color: m.role === 'user' ? 'var(--color-primary-contrast, #ffffff)' : 'var(--color-text-primary)',
                   padding: '10px 14px',
                   borderRadius: m.role === 'user' ? '14px 14px 2px 14px' : '14px 14px 14px 2px',
-                  border: m.role === 'user' ? 'none' : '1px solid rgba(148, 163, 184, 0.15)',
+                  border: m.role === 'user' ? 'none' : '1px solid var(--color-border-subtle)',
                   fontSize: '0.86rem',
                   lineHeight: 1.5,
                   wordBreak: 'break-word',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                  boxShadow: 'var(--shadow-card)',
                 }}
               >
                 {/* Attached File in Message */}
@@ -745,22 +745,22 @@ export const CommandChatbot = () => {
                     style={{
                       marginTop: '10px',
                       padding: '10px',
-                      backgroundColor: '#0f172a',
+                      backgroundColor: 'var(--color-code-bg)',
                       borderRadius: '8px',
-                      border: '1px solid rgba(56, 189, 248, 0.3)',
+                      border: '1px solid var(--color-code-border)',
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 600 }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 600 }}>
                         Result: {m.payload.rowCount} rows
                       </span>
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <button
                           onClick={() => copyToClipboard(m.payload.json, 'Copied JSON to clipboard')}
                           style={{
-                            backgroundColor: 'rgba(56, 189, 248, 0.15)',
-                            color: '#38bdf8',
-                            border: '1px solid rgba(56, 189, 248, 0.4)',
+                            backgroundColor: 'var(--color-primary-light)',
+                            color: 'var(--color-primary)',
+                            border: '1px solid var(--color-border-subtle)',
                             borderRadius: '4px',
                             padding: '2px 8px',
                             fontSize: '0.75rem',
@@ -772,8 +772,8 @@ export const CommandChatbot = () => {
                         <button
                           onClick={() => downloadFile(m.payload.json, m.payload.fileName)}
                           style={{
-                            backgroundColor: '#3b82f6',
-                            color: '#fff',
+                            backgroundColor: 'var(--color-primary)',
+                            color: 'var(--color-primary-contrast, #ffffff)',
                             border: 'none',
                             borderRadius: '4px',
                             padding: '2px 8px',
@@ -792,7 +792,7 @@ export const CommandChatbot = () => {
                         overflowY: 'auto',
                         fontFamily: 'monospace',
                         fontSize: '0.75rem',
-                        color: '#94a3b8',
+                        color: 'var(--color-code-text)',
                         whiteSpace: 'pre-wrap',
                       }}
                     >
@@ -808,18 +808,18 @@ export const CommandChatbot = () => {
                     style={{
                       marginTop: '8px',
                       padding: '8px',
-                      backgroundColor: '#0f172a',
+                      backgroundColor: 'var(--color-code-bg)',
                       borderRadius: '6px',
-                      border: '1px solid rgba(34, 197, 94, 0.3)',
+                      border: '1px solid var(--color-code-border)',
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '0.7rem', color: '#4ade80' }}>SQL Statement</span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--color-success)' }}>SQL Statement</span>
                       <button
                         onClick={() => copyToClipboard(m.payload.sql, 'Copied SQL to clipboard')}
                         style={{
-                          backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                          color: '#4ade80',
+                          backgroundColor: 'var(--color-success-bg)',
+                          color: 'var(--color-success)',
                           border: 'none',
                           borderRadius: '4px',
                           padding: '2px 8px',
@@ -830,7 +830,7 @@ export const CommandChatbot = () => {
                         Copy SQL
                       </button>
                     </div>
-                    <pre style={{ margin: 0, fontFamily: 'monospace', fontSize: '0.78rem', color: '#e2e8f0', whiteSpace: 'pre-wrap' }}>
+                    <pre style={{ margin: 0, fontFamily: 'monospace', fontSize: '0.78rem', color: 'var(--color-code-text)', whiteSpace: 'pre-wrap' }}>
                       {m.payload.sql}
                     </pre>
                   </div>
@@ -842,19 +842,20 @@ export const CommandChatbot = () => {
                     style={{
                       marginTop: '8px',
                       padding: '8px',
-                      backgroundColor: '#0f172a',
+                      backgroundColor: 'var(--color-code-bg)',
                       borderRadius: '6px',
+                      border: '1px solid var(--color-code-border)',
                     }}
                   >
-                    <pre style={{ margin: 0, fontFamily: 'monospace', fontSize: '0.8rem', color: '#e2e8f0', whiteSpace: 'pre-wrap' }}>
+                    <pre style={{ margin: 0, fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--color-code-text)', whiteSpace: 'pre-wrap' }}>
                       {m.payload.text}
                     </pre>
                     <button
                       onClick={() => copyToClipboard(m.payload.text)}
                       style={{
                         marginTop: '6px',
-                        backgroundColor: '#3b82f6',
-                        color: '#fff',
+                        backgroundColor: 'var(--color-primary)',
+                        color: 'var(--color-primary-contrast, #ffffff)',
                         border: 'none',
                         borderRadius: '4px',
                         padding: '2px 8px',
@@ -901,8 +902,8 @@ export const CommandChatbot = () => {
               display: 'flex',
               gap: '6px',
               overflowX: 'auto',
-              backgroundColor: 'rgba(15, 23, 42, 0.8)',
-              borderTop: '1px solid rgba(148, 163, 184, 0.1)',
+              backgroundColor: 'var(--color-surface)',
+              borderTop: '1px solid var(--color-border-subtle)',
             }}
           >
             {QUICK_PROMPTS.map((qp, idx) => (
@@ -910,9 +911,9 @@ export const CommandChatbot = () => {
                 key={idx}
                 onClick={() => handleSend(qp.prompt)}
                 style={{
-                  backgroundColor: 'rgba(30, 41, 59, 0.7)',
-                  color: '#94a3b8',
-                  border: '1px solid rgba(148, 163, 184, 0.2)',
+                  backgroundColor: 'var(--color-surface-hover)',
+                  color: 'var(--color-text-secondary)',
+                  border: '1px solid var(--color-border-subtle)',
                   borderRadius: '12px',
                   padding: '3px 9px',
                   fontSize: '0.72rem',
@@ -920,8 +921,8 @@ export const CommandChatbot = () => {
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = '#38bdf8')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = '#94a3b8')}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-primary)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-secondary)')}
               >
                 {qp.label}
               </button>
@@ -936,10 +937,10 @@ export const CommandChatbot = () => {
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '6px 12px',
-                backgroundColor: 'rgba(56, 189, 248, 0.12)',
-                borderTop: '1px solid rgba(56, 189, 248, 0.2)',
+                backgroundColor: 'var(--color-primary-light)',
+                borderTop: '1px solid var(--color-border-subtle)',
                 fontSize: '0.78rem',
-                color: '#38bdf8',
+                color: 'var(--color-primary)',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -952,7 +953,7 @@ export const CommandChatbot = () => {
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#94a3b8',
+                  color: 'var(--color-text-muted)',
                   cursor: 'pointer',
                   fontSize: '0.85rem',
                 }}
@@ -969,8 +970,8 @@ export const CommandChatbot = () => {
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              backgroundColor: 'rgba(15, 23, 42, 0.95)',
-              borderTop: '1px solid rgba(148, 163, 184, 0.15)',
+              backgroundColor: 'var(--color-surface)',
+              borderTop: '1px solid var(--color-border-subtle)',
             }}
           >
             {/* Hidden File Input */}
@@ -986,10 +987,10 @@ export const CommandChatbot = () => {
               onClick={() => fileInputRef.current?.click()}
               style={{
                 background: 'none',
-                border: '1px solid rgba(148, 163, 184, 0.25)',
+                border: '1px solid var(--color-border-subtle)',
                 borderRadius: '8px',
                 padding: '7px 9px',
-                color: '#94a3b8',
+                color: 'var(--color-text-secondary)',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -1010,11 +1011,11 @@ export const CommandChatbot = () => {
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
               style={{
                 flex: 1,
-                backgroundColor: 'rgba(30, 41, 59, 0.6)',
-                border: '1px solid rgba(148, 163, 184, 0.2)',
+                backgroundColor: 'var(--color-code-bg)',
+                border: '1px solid var(--color-border-subtle)',
                 borderRadius: '8px',
                 padding: '8px 12px',
-                color: '#f8fafc',
+                color: 'var(--color-text-primary)',
                 fontSize: '0.85rem',
                 outline: 'none',
               }}
@@ -1025,8 +1026,8 @@ export const CommandChatbot = () => {
               onClick={() => handleSend()}
               disabled={isProcessing || (!inputVal.trim() && !attachedFile)}
               style={{
-                backgroundColor: isProcessing || (!inputVal.trim() && !attachedFile) ? '#475569' : '#3b82f6',
-                color: '#ffffff',
+                backgroundColor: isProcessing || (!inputVal.trim() && !attachedFile) ? 'var(--color-border)' : 'var(--color-primary)',
+                color: 'var(--color-primary-contrast, #ffffff)',
                 border: 'none',
                 borderRadius: '8px',
                 padding: '8px 14px',
@@ -1036,6 +1037,7 @@ export const CommandChatbot = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '4px',
+                boxShadow: isProcessing || (!inputVal.trim() && !attachedFile) ? 'none' : '0 2px 8px var(--color-primary-glow)',
               }}
             >
               Send

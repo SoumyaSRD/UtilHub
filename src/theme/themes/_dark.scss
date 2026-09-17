@@ -1,50 +1,68 @@
-[data-theme='dark'] {
-  --color-primary: #3b82f6;
-  --color-primary-hover: #60a5fa;
-  --color-primary-light: #1e3a8a;
-  --color-primary-contrast: #ffffff;
+// Obsidian Night Theme (with Frosted Glass Tokens)
+@use '../styles/theme-engine' as *;
 
-  --color-secondary: #94a3b8;
-  --color-secondary-hover: #cbd5e1;
-  --color-secondary-light: #1e293b;
+$dark-tokens: (
+  'primary': #3b82f6,
+  'primary-hover': #60a5fa,
+  'primary-light': #1e3a8a,
+  'primary-contrast': #ffffff,
+  'primary-glow': rgba(59, 130, 246, 0.4),
 
-  --color-background: #090d16;
-  --color-surface: #111827;
-  --color-surface-hover: #1f2937;
-  --color-surface-border: #1f2937;
+  'secondary': #94a3b8,
+  'secondary-hover': #cbd5e1,
+  'secondary-light': #1e293b,
+  'secondary-glow': rgba(148, 163, 184, 0.3),
 
-  --color-sidebar-bg: #0b0f19;
-  --color-sidebar-text: #9ca3af;
-  --color-sidebar-text-bright: #f9fafb;
-  --color-sidebar-hover-bg: #1f2937;
-  --color-sidebar-active-bg: #2563eb;
-  --color-sidebar-active-text: #ffffff;
-  --color-sidebar-border: #1f2937;
+  'background': #090d16,
+  'surface': #111827,
+  'surface-hover': #1f2937,
+  'surface-border': #1f2937,
 
-  --color-header-bg: #0e1422;
-  --color-header-border: #1f2937;
+  'glass-bg': rgba(17, 24, 39, 0.75),
+  'glass-surface-hover': rgba(31, 41, 55, 0.85),
+  'glass-header-bg': rgba(14, 20, 34, 0.82),
+  'glass-sidebar-bg': rgba(11, 15, 25, 0.85),
+  'glass-border': rgba(55, 65, 81, 0.4),
+  'glass-border-glow': 0 0 12px rgba(59, 130, 246, 0.2),
+  'glass-blur': blur(16px),
+  'glass-shadow': '0 8px 32px 0 rgba(0, 0, 0, 0.45)',
 
-  --color-text-primary: #f9fafb;
-  --color-text-secondary: #9ca3af;
-  --color-text-muted: #6b7280;
+  'ambient-gradient': 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59, 130, 246, 0.12), transparent 70%)',
 
-  --color-border: #374151;
-  --color-border-subtle: #1f2937;
-  --color-divider: #1f2937;
+  'sidebar-bg': #0b0f19,
+  'sidebar-text': #9ca3af,
+  'sidebar-text-bright': #f9fafb,
+  'sidebar-hover-bg': #1f2937,
+  'sidebar-active-bg': #2563eb,
+  'sidebar-active-text': #ffffff,
+  'sidebar-border': #1f2937,
 
-  --color-success: #34d399;
-  --color-success-bg: rgba(52, 211, 153, 0.12);
-  --color-warning: #fbbf24;
-  --color-warning-bg: rgba(251, 191, 36, 0.12);
-  --color-error: #f87171;
-  --color-error-bg: rgba(248, 113, 113, 0.12);
-  --color-info: #38bdf8;
-  --color-info-bg: rgba(56, 189, 248, 0.12);
+  'header-bg': #0e1422,
+  'header-border': #1f2937,
 
-  --color-code-bg: #0b0f19;
-  --color-code-text: #e2e8f0;
-  --color-code-border: #1e293b;
+  'text-primary': #f9fafb,
+  'text-secondary': #9ca3af,
+  'text-muted': #6b7280,
 
-  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
-  --shadow-elevation: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
-}
+  'border': #374151,
+  'border-subtle': #1f2937,
+  'divider': #1f2937,
+
+  'success': #34d399,
+  'success-bg': rgba(52, 211, 153, 0.12),
+  'warning': #fbbf24,
+  'warning-bg': rgba(251, 191, 36, 0.12),
+  'error': #f87171,
+  'error-bg': rgba(248, 113, 113, 0.12),
+  'info': #38bdf8,
+  'info-bg': rgba(56, 189, 248, 0.12),
+
+  'code-bg': #0b0f19,
+  'code-text': #e2e8f0,
+  'code-border': #1e293b,
+
+  'shadow-card': '0 1px 3px 0 rgba(0, 0, 0, 0.3)',
+  'shadow-elevation': '0 4px 6px -1px rgba(0, 0, 0, 0.4)'
+);
+
+@include generate-theme-tokens('dark', $dark-tokens);

@@ -1,0 +1,68 @@
+// Nordic Frost Theme (with Glassmorphic Tokens)
+@use '../styles/theme-engine' as *;
+
+$nordic-tokens: (
+  'primary': #88c0d0,
+  'primary-hover': #8fbcbb,
+  'primary-light': #243542,
+  'primary-contrast': #242933,
+  'primary-glow': rgba(136, 192, 208, 0.4),
+
+  'secondary': #81a1c1,
+  'secondary-hover': #5e81ac,
+  'secondary-light': #253344,
+  'secondary-glow': rgba(129, 161, 193, 0.35),
+
+  'background': #1f232a,
+  'surface': #292e39,
+  'surface-hover': #353b49,
+  'surface-border': #3f4758,
+
+  'glass-bg': rgba(41, 46, 57, 0.75),
+  'glass-surface-hover': rgba(53, 59, 73, 0.85),
+  'glass-header-bg': rgba(34, 38, 46, 0.82),
+  'glass-sidebar-bg': rgba(34, 38, 46, 0.85),
+  'glass-border': rgba(67, 76, 94, 0.6),
+  'glass-border-glow': 0 0 12px rgba(136, 192, 208, 0.2),
+  'glass-blur': blur(16px),
+  'glass-shadow': '0 8px 32px 0 rgba(0, 0, 0, 0.45)',
+
+  'ambient-gradient': 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(136, 192, 208, 0.12), transparent 70%)',
+
+  'sidebar-bg': #22262e,
+  'sidebar-text': #9aa5b8,
+  'sidebar-text-bright': #eceff4,
+  'sidebar-hover-bg': #353b49,
+  'sidebar-active-bg': #3b4252,
+  'sidebar-active-text': #88c0d0,
+  'sidebar-border': #303744,
+
+  'header-bg': #22262e,
+  'header-border': #303744,
+
+  'text-primary': #eceff4,
+  'text-secondary': #d8dee9,
+  'text-muted': #7e8c9f,
+
+  'border': #434c5e,
+  'border-subtle': #2d333f,
+  'divider': #3b4252,
+
+  'success': #a3be8c,
+  'success-bg': rgba(163, 190, 140, 0.12),
+  'warning': #ebcb8b,
+  'warning-bg': rgba(235, 203, 139, 0.12),
+  'error': #bf616a,
+  'error-bg': rgba(191, 97, 106, 0.14),
+  'info': #81a1c1,
+  'info-bg': rgba(129, 161, 193, 0.12),
+
+  'code-bg': #1a1d23,
+  'code-text': #eceff4,
+  'code-border': #353b49,
+
+  'shadow-card': '0 1px 3px 0 rgba(0, 0, 0, 0.3)',
+  'shadow-elevation': '0 4px 10px -1px rgba(0, 0, 0, 0.45)'
+);
+
+@include generate-theme-tokens('nordic-frost', $nordic-tokens);

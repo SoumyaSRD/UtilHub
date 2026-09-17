@@ -1,0 +1,68 @@
+// Cyberpunk Neon Theme (with Glassmorphic Tokens)
+@use '../styles/theme-engine' as *;
+
+$cyberpunk-tokens: (
+  'primary': #00f0ff,
+  'primary-hover': #38f8ff,
+  'primary-light': #003642,
+  'primary-contrast': #000000,
+  'primary-glow': rgba(0, 240, 255, 0.45),
+
+  'secondary': #ff007f,
+  'secondary-hover': #ff3399,
+  'secondary-light': #420021,
+  'secondary-glow': rgba(255, 0, 127, 0.4),
+
+  'background': #080811,
+  'surface': #0f111e,
+  'surface-hover': #181b2e,
+  'surface-border': #232742,
+
+  'glass-bg': rgba(15, 17, 30, 0.72),
+  'glass-surface-hover': rgba(24, 27, 46, 0.85),
+  'glass-header-bg': rgba(12, 13, 24, 0.82),
+  'glass-sidebar-bg': rgba(11, 12, 22, 0.85),
+  'glass-border': rgba(0, 240, 255, 0.22),
+  'glass-border-glow': 0 0 14px rgba(0, 240, 255, 0.25),
+  'glass-blur': blur(16px),
+  'glass-shadow': '0 8px 32px 0 rgba(0, 0, 0, 0.55), 0 0 15px rgba(0, 240, 255, 0.1)',
+
+  'ambient-gradient': 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 240, 255, 0.14), transparent 70%), radial-gradient(ellipse 60% 40% at 100% 100%, rgba(255, 0, 127, 0.12), transparent 60%)',
+
+  'sidebar-bg': #0b0c16,
+  'sidebar-text': #8e95b3,
+  'sidebar-text-bright': #00f0ff,
+  'sidebar-hover-bg': #151829,
+  'sidebar-active-bg': #1e1940,
+  'sidebar-active-text': #00f0ff,
+  'sidebar-border': #1d2038,
+
+  'header-bg': #0c0d18,
+  'header-border': #232742,
+
+  'text-primary': #f0f4fc,
+  'text-secondary': #9da7c7,
+  'text-muted': #626b8a,
+
+  'border': #2b3052,
+  'border-subtle': #191c33,
+  'divider': #1f233f,
+
+  'success': #00ff9f,
+  'success-bg': rgba(0, 255, 159, 0.12),
+  'warning': #ffd600,
+  'warning-bg': rgba(255, 214, 0, 0.12),
+  'error': #ff2a6d,
+  'error-bg': rgba(255, 42, 109, 0.14),
+  'info': #05d9e8,
+  'info-bg': rgba(5, 217, 232, 0.12),
+
+  'code-bg': #06070d,
+  'code-text': #00f0ff,
+  'code-border': #1d2038,
+
+  'shadow-card': '0 2px 8px 0 rgba(0, 240, 255, 0.08)',
+  'shadow-elevation': '0 4px 16px -1px rgba(0, 240, 255, 0.15)'
+);
+
+@include generate-theme-tokens('cyberpunk-neon', $cyberpunk-tokens);

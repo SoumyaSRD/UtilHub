@@ -25,11 +25,14 @@ export const AppCard: React.FC<AppCardProps> = ({
   return (
     <Card
       sx={{
-        backgroundColor: 'var(--color-surface)',
-        border: '1px solid var(--color-surface-border)',
-        borderRadius: '12px',
-        boxShadow: 'var(--shadow-card)',
+        backgroundColor: 'var(--glass-bg, var(--color-surface))',
+        backdropFilter: 'var(--glass-blur, blur(16px))',
+        WebkitBackdropFilter: 'var(--glass-blur, blur(16px))',
+        border: '1px solid var(--glass-border, var(--color-surface-border))',
+        borderRadius: '14px',
+        boxShadow: 'var(--glass-shadow, var(--shadow-card))',
         overflow: 'hidden',
+        transition: 'border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease',
         ...sx,
       }}
       {...props}

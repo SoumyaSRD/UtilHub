@@ -18,6 +18,7 @@ import { AppCard } from '@shared/components/AppCard/AppCard';
 import { AppButton } from '@shared/components/AppButton/AppButton';
 import { useAppSelector, useAppDispatch } from '@app/store';
 import { showToast } from '@app/store/slices/uiSlice';
+import { isDarkTheme } from '@theme/types';
 
 const MonacoDiffEditor = lazy(() =>
   import('@monaco-editor/react').then((mod) => ({ default: mod.DiffEditor }))
@@ -46,7 +47,7 @@ function calculateDiscount(user, cartTotal) {
 export const TextDiffViewer: React.FC = () => {
   const dispatch = useAppDispatch();
   const currentTheme = useAppSelector((state) => state.preferences.themeMode);
-  const monacoTheme = currentTheme === 'dark' ? 'vs-dark' : 'light';
+  const monacoTheme = isDarkTheme(currentTheme) ? 'vs-dark' : 'light';
 
   const [language, setLanguage] = useState('javascript');
   const [originalText, setOriginalText] = useState(SAMPLE_ORIGINAL);

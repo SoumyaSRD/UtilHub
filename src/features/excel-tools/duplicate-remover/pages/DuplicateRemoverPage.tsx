@@ -25,6 +25,7 @@ import { AppButton } from '@shared/components/AppButton/AppButton';
 import { AppFileUpload } from '@shared/components/AppFileUpload/AppFileUpload';
 import { AppEmptyState } from '@shared/components/AppEmptyState/AppEmptyState';
 import { excelService, type ParsedSheetData } from '@shared/services/file/excelService';
+import { fileWorkerClient } from '@shared/workers/fileWorkerClient';
 import { useAppDispatch } from '@app/store';
 import { showToast } from '@app/store/slices/uiSlice';
 import { setActiveDataset, type ActiveDataset } from '@app/store/slices/sharedDataSlice';
@@ -52,11 +53,13 @@ export const DuplicateRemoverPage: React.FC = () => {
   const [keepStrategy, setKeepStrategy] = useState<'first' | 'last'>('first');
   const [cleanedRows, setCleanedRows] = useState<Record<string, unknown>[] | null>(null);
   const [duplicatesCount, setDuplicatesCount] = useState<number>(0);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   const handleFileSelect = async (uploadedFile: File) => {
     try {
       setFile(uploadedFile);
-      const parsed = await excelService.parseFile(uploadedFile);
+      setIsProcessing(true);
+      const parsed = await fileWorkerClient.parseExcelFile(uploadedFile);
       setParsedData(parsed);
       setKeyColumns(parsed.columns.slice(0, 2));
       setCleanedRows(null);
@@ -83,8 +86,11 @@ export const DuplicateRemoverPage: React.FC = () => {
           sourceTool: 'Duplicate Remover',
         })
       );
+      dispatch(showToast({ message: `Loaded ${parsed.totalRowCount} rows (Web Worker)`, severity: 'success' }));
     } catch {
       dispatch(showToast({ message: 'Failed to read spreadsheet', severity: 'error' }));
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -127,42 +133,40 @@ export const DuplicateRemoverPage: React.FC = () => {
     );
   };
 
-  const removeDuplicates = () => {
+  const removeDuplicates = async () => {
     if (!parsedData) return;
     if (keyColumns.length === 0) {
       dispatch(showToast({ message: 'Select at least one uniqueness column key', severity: 'warning' }));
       return;
     }
 
-    const seen = new Map<string, Record<string, unknown>>();
-    const rowsToScan = keepStrategy === 'first' ? parsedData.rows : [...parsedData.rows].reverse();
+    try {
+      setIsProcessing(true);
+      const res = await fileWorkerClient.removeDuplicates(parsedData.rows, keyColumns, keepStrategy);
+      const uniqueRows = res.cleanedRows;
+      const removed = res.duplicatesRemoved;
 
-    rowsToScan.forEach((row) => {
-      const compositeKey = keyColumns.map((k) => String(row[k] ?? '').trim().toLowerCase()).join('___');
-      if (!seen.has(compositeKey)) {
-        seen.set(compositeKey, row);
-      }
-    });
+      setCleanedRows(uniqueRows);
+      setDuplicatesCount(removed);
 
-    const uniqueRows = keepStrategy === 'first' ? Array.from(seen.values()) : Array.from(seen.values()).reverse();
-    const removed = parsedData.totalRowCount - uniqueRows.length;
+      auditService.record('TOOL_EXECUTED', user.name, 'excel.duplicate-remover', {
+        originalCount: parsedData.totalRowCount,
+        uniqueCount: uniqueRows.length,
+        duplicatesRemoved: removed,
+        keyColumns,
+      });
 
-    setCleanedRows(uniqueRows);
-    setDuplicatesCount(removed);
-
-    auditService.record('TOOL_EXECUTED', user.name, 'excel.duplicate-remover', {
-      originalCount: parsedData.totalRowCount,
-      uniqueCount: uniqueRows.length,
-      duplicatesRemoved: removed,
-      keyColumns,
-    });
-
-    dispatch(
-      showToast({
-        message: `Identified and removed ${removed} duplicate records!`,
-        severity: 'success',
-      })
-    );
+      dispatch(
+        showToast({
+          message: `Identified and removed ${removed} duplicate records (Web Worker)!`,
+          severity: 'success',
+        })
+      );
+    } catch (err) {
+      dispatch(showToast({ message: `Deduplication failed: ${err instanceof Error ? err.message : String(err)}`, severity: 'error' }));
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -251,7 +255,7 @@ export const DuplicateRemoverPage: React.FC = () => {
           </FormControl>
 
           <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid var(--color-divider)' }}>
-            <AppButton variant="contained" startIcon={<ContentCutIcon />} onClick={removeDuplicates}>
+            <AppButton variant="contained" startIcon={<ContentCutIcon />} onClick={removeDuplicates} loading={isProcessing}>
               Deduplicate Dataset
             </AppButton>
           </Box>

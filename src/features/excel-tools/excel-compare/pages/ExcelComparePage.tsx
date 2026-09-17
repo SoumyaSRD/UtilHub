@@ -20,7 +20,8 @@ import { AppCard } from '@shared/components/AppCard/AppCard';
 import { AppButton } from '@shared/components/AppButton/AppButton';
 import { AppFileUpload } from '@shared/components/AppFileUpload/AppFileUpload';
 import { AppEmptyState } from '@shared/components/AppEmptyState/AppEmptyState';
-import { excelService, type ParsedSheetData } from '@shared/services/file/excelService';
+import type { ParsedSheetData } from '@shared/services/file/excelService';
+import { fileWorkerClient } from '@shared/workers/fileWorkerClient';
 import { useAppDispatch } from '@app/store';
 import { showToast } from '@app/store/slices/uiSlice';
 
@@ -141,7 +142,15 @@ export const ExcelComparePage: React.FC = () => {
           <AppCard title="Baseline Dataset (Version A)">
             <AppFileUpload
               selectedFile={dataA ? new File([], dataA.fileName) : null}
-              onFileSelect={async (file) => setDataA(await excelService.parseFile(file))}
+              onFileSelect={async (file) => {
+                try {
+                  const res = await fileWorkerClient.parseExcelFile(file);
+                  setDataA(res);
+                  dispatch(showToast({ message: `Loaded Version A: ${res.fileName} (${res.totalRowCount} rows) via Worker`, severity: 'success' }));
+                } catch (e: any) {
+                  dispatch(showToast({ message: `Failed to parse Version A: ${e.message}`, severity: 'error' }));
+                }
+              }}
               onClear={() => setDataA(null)}
             />
           </AppCard>
@@ -150,7 +159,15 @@ export const ExcelComparePage: React.FC = () => {
           <AppCard title="Target Dataset (Version B)">
             <AppFileUpload
               selectedFile={dataB ? new File([], dataB.fileName) : null}
-              onFileSelect={async (file) => setDataB(await excelService.parseFile(file))}
+              onFileSelect={async (file) => {
+                try {
+                  const res = await fileWorkerClient.parseExcelFile(file);
+                  setDataB(res);
+                  dispatch(showToast({ message: `Loaded Version B: ${res.fileName} (${res.totalRowCount} rows) via Worker`, severity: 'success' }));
+                } catch (e: any) {
+                  dispatch(showToast({ message: `Failed to parse Version B: ${e.message}`, severity: 'error' }));
+                }
+              }}
               onClear={() => setDataB(null)}
             />
           </AppCard>

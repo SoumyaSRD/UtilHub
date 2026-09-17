@@ -1,0 +1,70 @@
+// Solo Leveling (Sung Jin-woo / Shadow Monarch) Theme
+// Inspired by the Shadow Monarch's electric blue necromancy eye glow and dark purple aura
+
+@use '../styles/theme-engine' as *;
+
+$solo-leveling-tokens: (
+  'primary': #00e5ff,
+  'primary-hover': #38fdfd,
+  'primary-light': #002f3a,
+  'primary-contrast': #05070e,
+  'primary-glow': rgba(0, 229, 255, 0.45),
+
+  'secondary': #8b5cf6,
+  'secondary-hover': #a78bfa,
+  'secondary-light': #2e1065,
+  'secondary-glow': rgba(139, 92, 246, 0.35),
+
+  'background': #05070e,
+  'surface': #0c0f1d,
+  'surface-hover': #14182e,
+  'surface-border': #1e2442,
+
+  'glass-bg': rgba(12, 15, 29, 0.72),
+  'glass-surface-hover': rgba(20, 24, 46, 0.85),
+  'glass-header-bg': rgba(8, 10, 20, 0.8),
+  'glass-sidebar-bg': rgba(7, 9, 18, 0.82),
+  'glass-border': rgba(0, 229, 255, 0.22),
+  'glass-border-glow': 0 0 15px rgba(0, 229, 255, 0.25),
+  'glass-blur': blur(16px),
+  'glass-shadow': '0 8px 32px 0 rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 229, 255, 0.08)',
+
+  'ambient-gradient': 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 229, 255, 0.15), transparent 70%), radial-gradient(ellipse 60% 40% at 100% 100%, rgba(139, 92, 246, 0.12), transparent 60%)',
+
+  'sidebar-bg': #080a14,
+  'sidebar-text': #8e9dbd,
+  'sidebar-text-bright': #00e5ff,
+  'sidebar-hover-bg': #12162a,
+  'sidebar-active-bg': #1a1e38,
+  'sidebar-active-text': #00e5ff,
+  'sidebar-border': #171b33,
+
+  'header-bg': #080a14,
+  'header-border': #1c223d,
+
+  'text-primary': #f0f4ff,
+  'text-secondary': #9bb0d6,
+  'text-muted': #5a6a8c,
+
+  'border': #222b4d,
+  'border-subtle': #151b33,
+  'divider': #1a203b,
+
+  'success': #10b981,
+  'success-bg': rgba(16, 185, 129, 0.14),
+  'warning': #f59e0b,
+  'warning-bg': rgba(245, 158, 11, 0.15),
+  'error': #f43f5e,
+  'error-bg': rgba(244, 63, 94, 0.15),
+  'info': #00e5ff,
+  'info-bg': rgba(0, 229, 255, 0.15),
+
+  'code-bg': #04060b,
+  'code-text': #00e5ff,
+  'code-border': #1c223d,
+
+  'shadow-card': '0 4px 20px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 229, 255, 0.08)',
+  'shadow-elevation': '0 10px 40px -10px rgba(0, 0, 0, 0.7), 0 0 25px rgba(0, 229, 255, 0.18)'
+);
+
+@include generate-theme-tokens('solo-leveling', $solo-leveling-tokens);

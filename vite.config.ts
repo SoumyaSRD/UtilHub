@@ -35,6 +35,9 @@ export default defineConfig({
           ) {
             return 'vendor_state';
           }
+          if (id.includes('node_modules/typescript')) {
+            return 'vendor_typescript';
+          }
         },
       },
     },
